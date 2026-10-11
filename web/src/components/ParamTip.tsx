@@ -50,7 +50,7 @@ export function ParamTip({ param }: { param: ParamDefinitionT }) {
           side="top"
           sideOffset={6}
           collisionPadding={12}
-          className="z-50 w-96 max-w-[90vw] rounded-xl border border-border bg-surface p-4 shadow-2xl"
+          className="z-50 w-96 max-w-[90vw] rounded-xl border border-border bg-surface/95 p-4 shadow-2xl backdrop-blur-md"
         >
           <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
             <code className="rounded bg-accent/15 px-1.5 py-0.5 text-xs font-semibold text-accent-soft">

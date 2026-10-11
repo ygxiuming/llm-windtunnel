@@ -18,9 +18,49 @@ html {
 }
 
 body {
-  background: var(--color-bg);
+  background:
+    radial-gradient(1100px 520px at 12% -8%, rgba(91, 141, 217, 0.16), transparent 60%),
+    radial-gradient(900px 480px at 105% 10%, rgba(111, 224, 168, 0.05), transparent 55%),
+    radial-gradient(900px 600px at 50% 115%, rgba(156, 192, 255, 0.06), transparent 62%),
+    var(--color-bg);
+  background-attachment: fixed;
   color: var(--color-text);
   font-family:
     -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC",
     "Microsoft YaHei", sans-serif;
+}
+
+::selection {
+  background: rgba(91, 141, 217, 0.35);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #24344f transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #24344f;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* subtle entrance for page content */
+main > div {
+  animation: wt-fade-up 0.28s ease-out;
+}
+@keyframes wt-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

@@ -12,6 +12,7 @@ import {
   cancelRun,
   listResults,
   loadResult,
+  deleteResult,
 } from "./bench/runner";
 import { renderReport } from "./report";
 
@@ -46,6 +47,38 @@ app.get("/api/registry/:engine", async (req, reply) => {
     return reply.code(404).send({ error: `Unknown engine: ${engine}` });
   }
   return data;
+});
+
+/**
+ * Server-side proxy for GET {baseUrl}/models — avoids CORS restrictions that
+ * browsers impose on direct calls to local inference engines.
+ */
+app.get("/api/llm/models", async (req, reply) => {
+  const { baseUrl, apiKey } = req.query as { baseUrl?: string; apiKey?: string };
+  if (!baseUrl) {
+    return reply.code(400).send({ error: "baseUrl query parameter is required" });
+  }
+  try {
+    const url = `${baseUrl.replace(/\/+$/, "")}/models`;
+    const res = await fetch(url, {
+      headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {},
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      return { models: [], error: `HTTP ${res.status} from ${url}` };
+    }
+    const json = (await res.json()) as {
+      data?: Array<{ id?: string }>;
+      models?: Array<{ name?: string }>;
+    };
+    const ids =
+      json.data?.map((m) => m.id).filter((v): v is string => Boolean(v)) ??
+      json.models?.map((m) => m.name).filter((v): v is string => Boolean(v)) ??
+      [];
+    return { models: [...new Set(ids)].sort((a, b) => a.localeCompare(b)) };
+  } catch (err) {
+    return { models: [], error: String(err) };
+  }
 });
 
 app.post("/api/bench/run", async (req, reply) => {
@@ -100,6 +133,15 @@ app.get("/api/bench/results/:id/report", async (req, reply) => {
   }
   reply.type("text/html; charset=utf-8");
   return renderReport(result);
+});
+
+app.delete("/api/bench/results/:id", async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const out = await deleteResult(id);
+  if (!out.ok) {
+    return reply.code(400).send({ error: out.error });
+  }
+  return { ok: true };
 });
 
 // ---- Static hosting of the built frontend (production mode) ----

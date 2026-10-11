@@ -35,6 +35,17 @@ export default function ParamBrowser() {
       .catch((e) => setError(String(e)));
   }, [engineId]);
 
+  const engineIcon = (id: string): string => {
+    const icons: Record<string, string> = {
+      vllm: "⚡",
+      ollama: "🦙",
+      "llama-cpp": "🧬",
+      tgi: "🤗",
+      "openai-compatible": "🌐",
+    };
+    return icons[id] ?? "🌐";
+  };
+
   if (error) {
     return (
       <Card>
@@ -67,7 +78,7 @@ export default function ParamBrowser() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">{t("nav.params")}</h1>
-          <p className="text-sm text-muted">{t("app.tagline")}</p>
+          <p className="max-w-2xl text-sm text-muted">{t("params.pageDesc")}</p>
         </div>
         <input
           type="search"
@@ -84,12 +95,13 @@ export default function ParamBrowser() {
             key={e.engine}
             type="button"
             onClick={() => setEngineId(e.engine)}
-            className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm transition-colors ${
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-all ${
               e.engine === engineId
-                ? "border-accent bg-accent/15 text-accent-soft"
-                : "border-border bg-surface text-text/80 hover:border-accent/50"
+                ? "border-transparent bg-gradient-to-r from-accent/30 to-accent-soft/10 text-accent-soft shadow-[inset_0_0_0_1px_rgba(91,141,217,.4),0_8px_24px_-14px_rgba(91,141,217,.6)]"
+                : "border-border bg-surface/70 text-text/80 hover:border-accent/40 hover:text-text"
             }`}
           >
+            <span>{engineIcon(e.engine)}</span>
             <span className="font-medium">{e.displayName}</span>
             <span className="text-[11px] text-muted">{e.paramCount}</span>
             {e.status === "archived" && (
@@ -139,7 +151,7 @@ export default function ParamBrowser() {
                 <Card className="overflow-x-auto p-0">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted">
+                      <tr className="border-b border-border bg-bg/40 text-left text-[11px] uppercase tracking-wider text-muted">
                         <th className="px-4 py-2.5 font-medium">Parameter</th>
                         <th className="px-4 py-2.5 font-medium">{t("params.scopeRequest")} / {t("params.scopeServer")}</th>
                         <th className="px-4 py-2.5 font-medium">{t("params.fieldType")}</th>
@@ -151,7 +163,7 @@ export default function ParamBrowser() {
                       {params.map((p) => (
                         <tr
                           key={`${p.scope}-${p.name}`}
-                          className="border-b border-border/60 last:border-0 hover:bg-bg/40"
+                          className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/[0.045]"
                         >
                           <td className="px-4 py-2.5">
                             <span className="font-mono text-[13px] text-text">

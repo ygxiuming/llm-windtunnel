@@ -66,7 +66,10 @@ head to **Benchmark**, point it at your engine — e.g.
 
 Field naming follows `vllm bench serve`'s JSON schema so results stay comparable
 with the wider ecosystem. Each run embeds whether tokens were counted from the
-server's `usage` chunk or locally (o200k tokenizer).
+server's `usage` chunk or locally (o200k tokenizer). Reasoning models are
+handled natively: `reasoning_content` deltas count as real decode output
+(affecting TTFT/TPOT/throughput), and engine errors (e.g. out-of-range
+sampling params) are surfaced per-level in the results.
 
 ## The parameter registry (core asset)
 
@@ -74,8 +77,8 @@ server's `usage` chunk or locally (o200k tokenizer).
 inference-engine parameters — to our knowledge the **first cross-engine parameter
 registry with structured metadata** (see the
 [research survey](docs/research/opensource-survey-2026-10.md), module 2).
-Five engines shipped in v0.1: **vLLM (33 params), Ollama (20), llama.cpp (23),
-TGI (17, archived), OpenAI-compatible subset (13)** — ~100 parameters with
+Five engines shipped in v0.1: **vLLM (31 params), Ollama (20), llama.cpp (27),
+TGI (17, archived), OpenAI-compatible subset (13)** — 108 parameters with
 `documented` / `runtime-only` / `archived` provenance flags.
 
 Add an engine or fix a description by editing YAML — the UI picks it up on

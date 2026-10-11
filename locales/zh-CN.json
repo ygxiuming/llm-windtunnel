@@ -18,6 +18,7 @@
     "detail": "详情"
   },
   "params": {
+    "pageDesc": "各引擎参数的中英双语查询字典：是什么、默认多少、能调多少。它背后的 registry 数据同时驱动全站每个「?」tooltip。",
     "paramCount": "{{count}} 个参数",
     "archivedEngine": "引擎已归档 — 参数冻结于最后版本",
     "statusDocumented": "官方文档",
@@ -44,6 +45,10 @@
     "apiKey": "API Key（可选）",
     "model": "模型",
     "modelHint": "GET /v1/models 可查看可用 id",
+    "modelsLoading": "正在加载模型列表…",
+    "modelsLoaded": "已加载 {{count}} 个模型 — 点开输入框即可切换",
+    "modelsError": "无法连接端点或未获取到模型，可手动输入",
+    "refreshModels": "重新加载模型列表",
     "apiPath": "API 类型",
     "concurrencyLevels": "并发档位",
     "concurrencyLevelsHint": "逗号分隔，如 1, 2, 4, 8",
@@ -55,6 +60,14 @@
     "stream": "流式输出",
     "streamHint": "测 TTFT / ITL 必须开启",
     "examples": "常见端点示例：",
+    "advancedToggle": "高级参数 —— 采样、种子、额外请求体",
+    "advancedHint": "留空或保持默认的字段完全不会发送，兼容严格的 OpenAI 风格端点。",
+    "timeout": "请求超时（秒）",
+    "seedHint": "留空为随机",
+    "ignoreEosHint": "忽略 EOS，一直生成到 max_tokens（vLLM / llama.cpp）",
+    "extraBody": "额外请求体（JSON）",
+    "extraBodyHint": "合并进每条请求——用于引擎特有字段，如 {\"top_k\":40,\"min_p\":0.05}",
+    "invalidExtraBody": "额外请求体不是合法 JSON",
     "start": "开始压测",
     "stop": "停止",
     "starting": "启动中…",
@@ -114,6 +127,11 @@
     "chartHeatmap": "TTFT 热力图：并发 × 百分位",
     "concurrency": "并发",
     "tokPerS": "tok/s",
-    "ms": "毫秒"
+    "ms": "毫秒",
+    "delete": "删除",
+    "deleteSelected": "删除所选",
+    "confirmDelete": "确定删除运行 {{id}} 的报告吗？报告文件将被永久移除。",
+    "confirmDeleteSelected": "确定永久删除所选的 {{count}} 条记录吗？",
+    "deleteFailed": "删除失败"
   }
 }

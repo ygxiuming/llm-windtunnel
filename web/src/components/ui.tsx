@@ -90,7 +90,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-border bg-surface p-5 ${className}`}
+      className={`rounded-xl border border-border bg-surface/80 p-5 shadow-[0_10px_36px_-24px_rgba(0,0,0,.7)] backdrop-blur-sm transition-colors ${className}`}
     >
       {children}
     </div>

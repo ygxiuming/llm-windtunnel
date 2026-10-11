@@ -38,6 +38,15 @@ export const api = {
       json<EngineRegistryT>(r)
     ),
 
+  /** Proxy-loaded model list for an OpenAI-compatible endpoint. */
+  models: (baseUrl: string, apiKey?: string) => {
+    const q = new URLSearchParams({ baseUrl });
+    if (apiKey) q.set("apiKey", apiKey);
+    return fetch(`/api/llm/models?${q.toString()}`).then((r) =>
+      json<{ models: string[]; error?: string }>(r)
+    );
+  },
+
   startRun: (config: BenchConfigT) =>
     fetch("/api/bench/run", {
       method: "POST",
@@ -64,6 +73,11 @@ export const api = {
 
   result: (id: string) =>
     fetch(`/api/bench/results/${id}`).then((r) => json<RunResultT>(r)),
+
+  deleteResult: (id: string) =>
+    fetch(`/api/bench/results/${id}`, { method: "DELETE" }).then((r) =>
+      json<{ ok: boolean }>(r)
+    ),
 
   reportUrl: (id: string) => `/api/bench/results/${id}/report`,
 };

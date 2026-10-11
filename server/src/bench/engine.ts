@@ -71,6 +71,18 @@ async function runOne(
     stream: cfg.stream,
     stream_options: cfg.stream ? { include_usage: true } : undefined,
   };
+  // Advanced knobs are only attached when explicitly set — default payloads
+  // stay compatible with strict OpenAI-style endpoints.
+  if (cfg.topK !== undefined && cfg.topK > 0) body.top_k = cfg.topK;
+  if (cfg.minP !== undefined && cfg.minP > 0) body.min_p = cfg.minP;
+  if (cfg.repetitionPenalty !== undefined && cfg.repetitionPenalty !== 1) {
+    body.repetition_penalty = cfg.repetitionPenalty;
+  }
+  if (cfg.presencePenalty) body.presence_penalty = cfg.presencePenalty;
+  if (cfg.frequencyPenalty) body.frequency_penalty = cfg.frequencyPenalty;
+  if (cfg.seed !== undefined) body.seed = cfg.seed;
+  if (cfg.ignoreEos) body.ignore_eos = true;
+  if (cfg.extraBody) Object.assign(body, cfg.extraBody);
   if (isChat) {
     body.messages = [{ role: "user", content: prompt }];
   } else {
@@ -100,10 +112,16 @@ async function runOne(
     if (!cfg.stream) {
       const json = (await res.json()) as {
         usage?: { completion_tokens?: number };
-        choices?: Array<{ message?: { content?: string }; text?: string }>;
+        choices?: Array<{
+          message?: { content?: string; reasoning_content?: string };
+          text?: string;
+        }>;
       };
+      // Reasoning models emit thinking tokens via `reasoning_content` — they
+      // are real decode work and must count toward throughput/latency.
       const content = isChat
-        ? (json.choices?.[0]?.message?.content ?? "")
+        ? (json.choices?.[0]?.message?.content ?? "") +
+          (json.choices?.[0]?.message?.reasoning_content ?? "")
         : (json.choices?.[0]?.text ?? "");
       const usageTokens = json.usage?.completion_tokens;
       return {
@@ -138,7 +156,10 @@ async function runOne(
         if (payload === "[DONE]") continue;
         let json: {
           usage?: { completion_tokens?: number };
-          choices?: Array<{ delta?: { content?: string }; text?: string }>;
+          choices?: Array<{
+            delta?: { content?: string; reasoning_content?: string };
+            text?: string;
+          }>;
           error?: { message?: string };
         };
         try {
@@ -160,7 +181,9 @@ async function runOne(
           usageTokens = json.usage.completion_tokens;
         }
         const delta = isChat
-          ? (json.choices?.[0]?.delta?.content ?? "")
+          ? (json.choices?.[0]?.delta?.content ??
+            json.choices?.[0]?.delta?.reasoning_content ??
+            "")
           : (json.choices?.[0]?.text ?? "");
         if (delta) {
           if (ttft === undefined) {

@@ -19,6 +19,18 @@ export const BenchConfig = z.object({
   outputTokens: z.number().int().min(8).max(8192).default(128),
   temperature: z.number().min(0).max(2).default(1.0),
   topP: z.number().min(0).max(1).default(1.0),
+  /** Extra sampling knobs — sent only when explicitly set, so default
+   *  payloads stay compatible with strict OpenAI endpoints. */
+  topK: z.number().int().min(-1).max(500).optional(),
+  minP: z.number().min(0).max(1).optional(),
+  repetitionPenalty: z.number().min(0.1).max(2).optional(),
+  presencePenalty: z.number().min(-2).max(2).optional(),
+  frequencyPenalty: z.number().min(-2).max(2).optional(),
+  seed: z.number().int().optional(),
+  /** Keep generating past EOS until max_tokens (vLLM / llama.cpp). */
+  ignoreEos: z.boolean().default(false),
+  /** Arbitrary extra fields merged into the request body (engine-specific options). */
+  extraBody: z.record(z.unknown()).optional(),
   /** Concurrency sweep: one measurement per level, executed sequentially. */
   concurrencyLevels: z
     .array(z.number().int().min(1).max(512))

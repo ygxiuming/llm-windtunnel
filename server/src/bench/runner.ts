@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   BenchConfigT,
@@ -167,5 +167,27 @@ export async function loadResult(id: string): Promise<RunResultT | undefined> {
     return JSON.parse(raw) as RunResultT;
   } catch {
     return undefined;
+  }
+}
+
+/** Delete a stored run report. In-flight runs must be cancelled first. */
+export async function deleteResult(
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!/^[0-9a-f]{8}$/i.test(id)) {
+    return { ok: false, error: "invalid run id" };
+  }
+  const state = runs.get(id);
+  if (state && state.result.status === "running") {
+    return { ok: false, error: "run is still in progress — cancel it first" };
+  }
+  runs.delete(id);
+  try {
+    await unlink(path.join(RESULTS_DIR, `${id}.json`));
+    return { ok: true };
+  } catch {
+    return state
+      ? { ok: true }
+      : { ok: false, error: "result not found" };
   }
 }

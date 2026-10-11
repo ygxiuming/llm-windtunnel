@@ -18,6 +18,7 @@
     "detail": "Details"
   },
   "params": {
+    "pageDesc": "A bilingual dictionary of every engine parameter — what it does, its default, its range. The registry behind it also powers the ? tooltips across this tool.",
     "paramCount": "{{count}} parameters",
     "archivedEngine": "archived engine — parameters frozen at last release",
     "statusDocumented": "documented",
@@ -44,6 +45,10 @@
     "apiKey": "API key (optional)",
     "model": "Model",
     "modelHint": "GET /v1/models lists available ids",
+    "modelsLoading": "Loading model list…",
+    "modelsLoaded": "{{count}} models loaded — open the input to switch",
+    "modelsError": "Could not reach endpoint / no models — type an id manually",
+    "refreshModels": "Reload model list",
     "apiPath": "API",
     "concurrencyLevels": "Concurrency levels",
     "concurrencyLevelsHint": "comma-separated, e.g. 1, 2, 4, 8",
@@ -55,6 +60,14 @@
     "stream": "Streaming",
     "streamHint": "required for TTFT / ITL",
     "examples": "Example endpoints:",
+    "advancedToggle": "Advanced parameters — sampling, seed, extra body",
+    "advancedHint": "Blank / default fields are not sent at all, keeping strict OpenAI-style endpoints happy.",
+    "timeout": "Request timeout (s)",
+    "seedHint": "empty = random",
+    "ignoreEosHint": "keep generating past EOS until max_tokens (vLLM / llama.cpp)",
+    "extraBody": "Extra request body (JSON)",
+    "extraBodyHint": "merged into every request — engine-specific fields, e.g. {\"top_k\":40,\"min_p\":0.05}",
+    "invalidExtraBody": "Extra request body is not valid JSON",
     "start": "Start benchmark",
     "stop": "Stop",
     "starting": "Starting…",
@@ -114,6 +127,11 @@
     "chartHeatmap": "TTFT heatmap: concurrency × percentile",
     "concurrency": "Concurrency",
     "tokPerS": "tok/s",
-    "ms": "ms"
+    "ms": "ms",
+    "delete": "Delete",
+    "deleteSelected": "Delete selected",
+    "confirmDelete": "Delete run {{id}}? The report file will be removed permanently.",
+    "confirmDeleteSelected": "Delete {{count}} selected runs permanently?",
+    "deleteFailed": "Delete failed"
   }
 }

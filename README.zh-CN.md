@@ -62,14 +62,17 @@ npm start            # → http://127.0.0.1:8787
 
 字段命名跟随 `vllm bench serve` 的 JSON schema，结果可与生态横向对比。
 每次运行都会记录 token 计数来源（服务端 `usage` 或本地 o200k 分词器）。
+推理模型（reasoning 模型）原生支持：`reasoning_content` 中的思考 token 计入
+真实解码产出（影响 TTFT/TPOT/吞吐）；引擎返回的错误（如采样参数超限）会
+按档位透出到结果里。
 
 ## 参数 registry（核心资产）
 
 `registry/engines/*.yaml` 是人工策划、注明来源、中英双语的推理引擎参数注册表——
 据我们所知这是**首个跨引擎的结构化参数注册表**（见
 [调研报告](docs/research/opensource-survey-2026-10.md) 模块二）。
-v0.1 收录 5 个引擎：**vLLM（33 参数）、Ollama（20）、llama.cpp（23）、TGI（17，已归档）、
-OpenAI 兼容子集（13）**——约 100 个参数，均带 `documented` / `runtime-only` /
+v0.1 收录 5 个引擎：**vLLM（31 参数）、Ollama（20）、llama.cpp（27）、TGI（17，已归档）、
+OpenAI 兼容子集（13）**——共 108 个参数，均带 `documented` / `runtime-only` /
 `archived` 三级来源标注。
 
 新增引擎或修订描述只需编辑 YAML——重启后 UI 即刻生效；不合法的文件（schema 违规、

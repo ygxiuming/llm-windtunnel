@@ -33,15 +33,23 @@ export default function Results() {
   const [selected, setSelected] = useState<string[]>([]);
   const [detailed, setDetailed] = useState<Record<string, RunResultT>>({});
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const refresh = async () => {
+    try {
+      const list = await api.results();
+      setSummaries(list);
+      setSelected((prev) => prev.filter((id) => list.some((s) => s.id === id)));
+      return list;
+    } catch (e) {
+      setError(String(e));
+      return [];
+    }
+  };
 
   useEffect(() => {
-    api
-      .results()
-      .then((list) => {
-        setSummaries(list);
-        setSelected(list.slice(0, 1).map((s) => s.id));
-      })
-      .catch((e) => setError(String(e)));
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -68,6 +76,42 @@ export default function Results() {
           ? prev
           : [...prev, id]
     );
+  };
+
+  /** Delete one run, or the current selection when ids omitted. */
+  const removeRuns = async (ids: string[]) => {
+    if (ids.length === 0 || deleting) return;
+    const msg =
+      ids.length === 1
+        ? t("results.confirmDelete", { id: ids[0] })
+        : t("results.confirmDeleteSelected", { count: ids.length });
+    if (!window.confirm(msg)) return;
+    setDeleting(true);
+    try {
+      const failed: string[] = [];
+      for (const id of ids) {
+        try {
+          await api.deleteResult(id);
+        } catch {
+          failed.push(id);
+        }
+      }
+      if (failed.length > 0) {
+        setError(`${t("results.deleteFailed")}: ${failed.join(", ")}`);
+      } else {
+        setError(null);
+      }
+      await refresh();
+      setDetailed((prev) => {
+        const next: Record<string, RunResultT> = {};
+        for (const [k, v] of Object.entries(prev)) {
+          if (!ids.includes(k)) next[k] = v;
+        }
+        return next;
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const throughputOption = useMemo<echarts.EChartsOption>(() => {
@@ -101,7 +145,10 @@ export default function Results() {
         data: concurrencies.map(
           (c) => r.levels.find((l) => l.concurrency === c)?.outputThroughput ?? null
         ),
-        itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
+        itemStyle: {
+          color: SERIES_COLORS[i % SERIES_COLORS.length],
+          borderRadius: [4, 4, 0, 0],
+        },
       })),
     };
   }, [selectedRuns, t]);
@@ -139,7 +186,8 @@ export default function Results() {
           (c) => r.levels.find((l) => l.concurrency === c)?.ttft?.p50 ?? null
         ),
         itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
-        lineStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
+        lineStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length], width: 2 },
+        areaStyle: { opacity: 0.08 },
       })),
     };
   }, [selectedRuns, t]);
@@ -203,9 +251,21 @@ export default function Results() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">{t("results.title")}</h1>
-        <p className="text-sm text-muted">{t("results.desc")}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold">{t("results.title")}</h1>
+          <p className="text-sm text-muted">{t("results.desc")}</p>
+        </div>
+        {selected.length > 0 && (
+          <button
+            type="button"
+            onClick={() => void removeRuns(selected)}
+            disabled={deleting}
+            className="rounded-lg border border-bad/50 px-3 py-1.5 text-xs text-bad transition-colors hover:bg-bad/10 disabled:opacity-40"
+          >
+            {t("results.deleteSelected")} ({selected.length})
+          </button>
+        )}
       </div>
 
       {error && (
@@ -227,7 +287,7 @@ export default function Results() {
           <Card className="overflow-x-auto p-0">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted">
+                <tr className="border-b border-border bg-bg/50 text-left text-[11px] uppercase tracking-wide text-muted">
                   <th className="px-4 py-2.5"></th>
                   <th className="px-4 py-2.5 font-medium">{t("results.run")}</th>
                   <th className="px-4 py-2.5 font-medium">{t("results.date")}</th>
@@ -235,12 +295,15 @@ export default function Results() {
                   <th className="px-4 py-2.5 font-medium">{t("results.endpoint")}</th>
                   <th className="px-4 py-2.5 font-medium">{t("results.levels")}</th>
                   <th className="px-4 py-2.5 font-medium">{t("results.status")}</th>
-                  <th className="px-4 py-2.5 font-medium"></th>
+                  <th className="px-4 py-2.5 text-right font-medium">{t("common.openReport")} / {t("results.delete")}</th>
                 </tr>
               </thead>
               <tbody>
                 {summaries.map((s) => (
-                  <tr key={s.id} className="border-b border-border/60 last:border-0">
+                  <tr
+                    key={s.id}
+                    className="border-b border-border/60 transition-colors last:border-0 hover:bg-accent/[0.04]"
+                  >
                     <td className="px-4 py-2.5">
                       <input
                         type="checkbox"
@@ -264,15 +327,25 @@ export default function Results() {
                         {s.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 text-right">
                       <a
                         href={api.reportUrl(s.id)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-accent-soft underline decoration-accent/40 underline-offset-2"
+                        className="text-xs text-accent-soft underline decoration-accent/40 underline-offset-2 transition-colors hover:decoration-accent"
                       >
                         {t("common.openReport")}
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => void removeRuns([s.id])}
+                        disabled={deleting}
+                        aria-label={`${t("results.delete")} ${s.id}`}
+                        title={`${t("results.delete")} ${s.id}`}
+                        className="ml-3 rounded-md px-1.5 py-0.5 text-sm text-muted transition-colors hover:bg-bad/10 hover:text-bad disabled:opacity-40"
+                      >
+                        🗑
+                      </button>
                     </td>
                   </tr>
                 ))}
