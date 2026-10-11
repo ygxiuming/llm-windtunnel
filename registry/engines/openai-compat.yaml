@@ -1,0 +1,149 @@
+# OpenAI-compatible common subset — the baseline for ANY compatible endpoint
+# (vLLM, Ollama /v1, llama.cpp /v1, TGI, OpenAI, DeepSeek, local proxies...).
+# English metadata from github.com/openai/openai-openapi.
+engine: openai-compatible
+displayName: OpenAI-compatible endpoint
+homepage: https://github.com/openai/openai-openapi
+status: active
+apiStyle: OpenAI REST
+launchHint:
+  en: "Any server exposing /v1/chat/completions — set Base URL to http://<host>:<port>/v1"
+  zh: "任何暴露 /v1/chat/completions 的服务——Base URL 填 http://<host>:<port>/v1"
+source: "https://github.com/openai/openai-openapi"
+
+categories:
+  - id: sampling
+    name: { en: "Sampling & generation control", zh: "采样与生成控制" }
+  - id: server
+    name: { en: "Server & networking", zh: "服务与网络" }
+
+params:
+  - name: model
+    scope: request
+    category: server
+    apiField: model
+    type: string
+    status: documented
+    description:
+      en: "Model id the server exposes (see GET /v1/models). Required."
+      zh: "服务端暴露的模型 id（可通过 GET /v1/models 查询）。必填。"
+  - name: temperature
+    scope: request
+    category: sampling
+    apiField: temperature
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 2.0 }
+    status: documented
+    description:
+      en: "Sampling randomness, 0-2. Not all servers implement every parameter — unknown fields may be ignored silently, which is exactly why per-engine registries exist in this tool."
+      zh: "采样随机性，范围 0-2。并非所有服务都实现全部参数——未知字段可能被静默忽略，这正是本工具为每个引擎单设参数注册表的原因。"
+  - name: top_p
+    scope: request
+    category: sampling
+    apiField: top_p
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 1.0 }
+    status: documented
+    description:
+      en: "Nucleus sampling threshold. OpenAI recommends tuning temperature or top_p, not both."
+      zh: "核采样阈值。OpenAI 建议在 temperature 与 top_p 中调一个即可，不要同时调。"
+  - name: n
+    scope: request
+    category: sampling
+    apiField: n
+    type: integer
+    default: 1
+    range: { min: 1, max: 128 }
+    status: documented
+    description:
+      en: "Number of choices to generate per request."
+      zh: "每条请求生成几条候选输出。"
+  - name: max_tokens
+    scope: request
+    category: sampling
+    apiField: max_tokens
+    type: integer
+    status: documented
+    description:
+      en: "Legacy max-generation field; chat models should prefer max_completion_tokens, but many self-hosted engines still only read max_tokens."
+      zh: "旧版最大生成 token 字段；官方建议 chat 模型改用 max_completion_tokens，但很多自托管引擎仍只认 max_tokens。"
+  - name: max_completion_tokens
+    scope: request
+    category: sampling
+    apiField: max_completion_tokens
+    type: integer
+    status: documented
+    description:
+      en: "Modern replacement for max_tokens (includes reasoning tokens on o-series models)."
+      zh: "max_tokens 的现代替代字段（o 系列模型上还包含推理 token）。"
+  - name: stream
+    scope: request
+    category: server
+    apiField: stream
+    type: boolean
+    default: false
+    status: documented
+    description:
+      en: "Stream partial deltas via SSE. Benchmarks measuring TTFT/ITL must enable it — those metrics do not exist in non-streaming responses."
+      zh: "通过 SSE 流式返回增量。要测 TTFT/ITL 必须开启——非流式响应里这两个指标不存在。"
+  - name: stream_options.include_usage
+    scope: request
+    category: server
+    apiField: stream_options.include_usage
+    type: boolean
+    status: documented
+    description:
+      en: "Ask for a final chunk carrying token usage counts. llm-windtunnel always sends it; servers that predate it may reject the request."
+      zh: "请求最后一个携带 token 用量统计的分块。llm-windtunnel 默认始终发送；个别老版本服务可能不认识该字段。"
+  - name: stop
+    scope: request
+    category: sampling
+    apiField: stop
+    type: string[]
+    status: documented
+    description:
+      en: "Up to 4 stop sequences; the generated text will not contain the stop sequence itself."
+      zh: "最多 4 个停止序列；生成的文本本身不会包含停止序列。"
+  - name: seed
+    scope: request
+    category: sampling
+    apiField: seed
+    type: integer
+    status: documented
+    description:
+      en: "Best-effort deterministic sampling seed (same seed + parameters ⇒ same result, as far as the server can guarantee)."
+      zh: "尽力而为的确定性采样种子（相同种子 + 相同参数 ⇒ 服务端尽力返回相同结果）。"
+  - name: presence_penalty
+    scope: request
+    category: sampling
+    apiField: presence_penalty
+    type: number
+    default: 0.0
+    range: { min: -2.0, max: 2.0 }
+    status: documented
+    description:
+      en: "One-time additive penalty for tokens that already appeared."
+      zh: "对已出现 token 的一次性加性惩罚。"
+  - name: frequency_penalty
+    scope: request
+    category: sampling
+    apiField: frequency_penalty
+    type: number
+    default: 0.0
+    range: { min: -2.0, max: 2.0 }
+    status: documented
+    description:
+      en: "Additive penalty scaled by each token's frequency so far."
+      zh: "按 token 已出现频次成比例的加性惩罚。"
+  - name: response_format
+    scope: request
+    category: sampling
+    apiField: response_format
+    type: string
+    choices: [text, json_object, json_schema]
+    status: documented
+    description:
+      en: "Output format control: text, forced JSON object, or strict json_schema. Support varies widely across self-hosted engines."
+      zh: "输出格式控制：text / 强制 JSON 对象 / 严格 json_schema。自托管引擎的支持程度差异很大。"

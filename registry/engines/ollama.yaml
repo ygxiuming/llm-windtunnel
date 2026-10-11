@@ -1,0 +1,239 @@
+# Ollama parameter registry
+# Documented params from docs.ollama.com/modelfile (verified 2026-10);
+# runtime-only params are accepted by the runner but no longer listed in the doc table.
+engine: ollama
+displayName: Ollama
+homepage: https://docs.ollama.com/
+status: active
+apiStyle: Native REST (/api/...) + OpenAI-compatible (/v1)
+launchHint:
+  en: "ollama serve (or install as a service) — native API at http://127.0.0.1:11434, OpenAI-compatible at http://127.0.0.1:11434/v1"
+  zh: "ollama serve（或安装为系统服务）——原生 API 在 http://127.0.0.1:11434，OpenAI 兼容端点在 http://127.0.0.1:11434/v1"
+source: "https://docs.ollama.com/modelfile + docs/api.md"
+
+categories:
+  - id: sampling
+    name: { en: "Sampling & generation control", zh: "采样与生成控制" }
+  - id: scheduler
+    name: { en: "Batching & runtime", zh: "批处理与运行时" }
+  - id: memory-parallel
+    name: { en: "Memory & hardware", zh: "显存与硬件" }
+
+params:
+  # ---------- documented (Modelfile PARAMETER table) ----------
+  - name: num_ctx
+    scope: request
+    category: memory-parallel
+    apiField: options.num_ctx
+    type: integer
+    default: 2048
+    range: { min: 128, max: 1000000 }
+    since: "0.12"
+    description:
+      en: "Context window size in tokens. Exceeding it silently truncates earlier history; larger values cost KV-cache memory. The single most commonly misconfigured Ollama parameter."
+      zh: "上下文窗口大小（token 数）。超出会静默截断早期内容；调大显著增加 KV cache 显存占用。这是 Ollama 最常被配错的参数。"
+  - name: temperature
+    scope: request
+    category: sampling
+    apiField: options.temperature
+    type: number
+    default: 0.8
+    range: { min: 0.0, max: 2.0 }
+    since: "0.12"
+    description:
+      en: "Sampling temperature. Ollama's default 0.8 is more creative than OpenAI's 1.0 baseline; lower it for factual/structured tasks."
+      zh: "采样温度。Ollama 默认 0.8 比 OpenAI 基线 1.0 更发散；事实型/结构化任务建议调低。"
+  - name: top_p
+    scope: request
+    category: sampling
+    apiField: options.top_p
+    type: number
+    default: 0.9
+    range: { min: 0.0, max: 1.0 }
+    since: "0.12"
+    description:
+      en: "Nucleus sampling threshold: keep the smallest token set whose cumulative probability exceeds p."
+      zh: "核采样阈值：只在累计概率超过 p 的最小 token 集合内采样。"
+  - name: top_k
+    scope: request
+    category: sampling
+    apiField: options.top_k
+    type: integer
+    default: 40
+    range: { min: 0, max: 1000 }
+    since: "0.12"
+    description:
+      en: "Keep only the k most likely tokens before sampling. 0 disables the filter."
+      zh: "只在概率最高的 k 个 token 内采样。0 表示禁用过滤。"
+  - name: min_p
+    scope: request
+    category: sampling
+    apiField: options.min_p
+    type: number
+    default: 0.0
+    range: { min: 0.0, max: 1.0 }
+    since: "0.12"
+    description:
+      en: "Discard tokens below min_p × (top-token probability). Adaptive alternative to top_p."
+      zh: "丢弃概率低于「最高概率 token × min_p」的候选，是比 top_p 更自适应的过滤方式。"
+  - name: repeat_penalty
+    scope: request
+    category: sampling
+    apiField: options.repeat_penalty
+    type: number
+    default: 1.1
+    range: { min: 0.8, max: 2.0 }
+    since: "0.12"
+    description:
+      en: "Penalty for repeated tokens. Ollama defaults to 1.1 (mildly anti-repetition), unlike OpenAI-compatible APIs where 1.0 means off."
+      zh: "重复惩罚。Ollama 默认 1.1（轻度抑制重复），与 OpenAI 系 API 默认 1.0（关闭）不同，对齐测试时要注意。"
+  - name: repeat_last_n
+    scope: request
+    category: sampling
+    apiField: options.repeat_last_n
+    type: integer
+    default: 64
+    range: { min: -1, max: 4096 }
+    since: "0.12"
+    description:
+      en: "Window (in tokens) over which repeat_penalty applies. -1 means the whole context; 0 disables the penalty."
+      zh: "重复惩罚的作用窗口（token 数）。-1 表示整个上下文，0 表示关闭惩罚。"
+  - name: num_predict
+    scope: request
+    category: sampling
+    apiField: options.num_predict
+    type: integer
+    default: -1
+    since: "0.12"
+    description:
+      en: "Maximum tokens to generate. -1 means unlimited (until EOS or context end). Set a cap when benchmarking so runs are comparable."
+      zh: "最大生成 token 数。-1 表示不限制（到 EOS 或上下文末尾）。做性能测试时建议设固定上限保证可比较。"
+  - name: stop
+    scope: request
+    category: sampling
+    apiField: options.stop
+    type: string[]
+    since: "0.12"
+    description:
+      en: "Stop sequences — generation halts when any of them is produced (up to 4 in the native API)."
+      zh: "停止序列，输出任意一个即终止（原生 API 最多 4 个）。"
+  - name: seed
+    scope: request
+    category: sampling
+    apiField: options.seed
+    type: integer
+    default: 0
+    since: "0.12"
+    description:
+      en: "Random seed. 0 lets the backend pick; fix a non-zero seed for reproducible runs."
+      zh: "随机种子。0 表示随机；固定非零种子可获得可复现输出。"
+  - name: draft_num_predict
+    scope: request
+    category: sampling
+    apiField: options.draft_num_predict
+    type: integer
+    default: -1
+    since: "0.12"
+    description:
+      en: "Max draft tokens per step for speculative decoding with a draft model (-1 = unlimited). Only effective when a draft model is configured."
+      zh: "投机解码（speculative decoding）每步最多起草的 token 数（-1 不限制）。仅在配置了 draft 模型时生效。"
+
+  # ---------- runtime-only (accepted by the runner, absent from the doc table) ----------
+  - name: mirostat
+    scope: request
+    category: sampling
+    apiField: options.mirostat
+    type: integer
+    default: 0
+    range: { min: 0, max: 2 }
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Enable Mirostat perplexity control (0 = off, 1 = Mirostat 1.0, 2 = Mirostat 2.0). Dynamically adjusts sampling to keep output complexity near a target; still accepted at runtime though trimmed from the docs table."
+      zh: "启用 Mirostat 困惑度控制（0 关闭，1 为 Mirostat 1.0，2 为 Mirostat 2.0）。动态调节采样使输出复杂度贴近目标；官方文档表已精简掉它，但运行时仍接受。"
+  - name: mirostat_eta
+    scope: request
+    category: sampling
+    apiField: options.mirostat_eta
+    type: number
+    default: 0.1
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Mirostat learning rate — how fast the controller reacts to observed perplexity. Only meaningful when mirostat > 0."
+      zh: "Mirostat 学习率，控制其对观测困惑度的反应速度。仅在 mirostat 大于 0 时生效。"
+  - name: mirostat_tau
+    scope: request
+    category: sampling
+    apiField: options.mirostat_tau
+    type: number
+    default: 5.0
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Mirostat target entropy. Lower values make output more focused/deterministic, higher values more diverse."
+      zh: "Mirostat 目标熵。越低输出越聚焦确定，越高越发散。"
+  - name: num_gpu
+    scope: request
+    category: memory-parallel
+    apiField: options.num_gpu
+    type: integer
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Number of model layers offloaded to GPU (defaults to all layers). Lower it to intentionally keep part of the model on CPU — useful for profiling CPU/GPU split impact on TTFT."
+      zh: "卸载到 GPU 的模型层数（默认全部卸载）。调低可让部分层留在 CPU——用于分析 CPU/GPU 混合推理对 TTFT 的影响。"
+  - name: num_thread
+    scope: request
+    category: memory-parallel
+    apiField: options.num_thread
+    type: integer
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "CPU threads for CPU-side computation. Defaults to an auto-detected optimum; matching physical cores usually beats logical cores."
+      zh: "CPU 计算线程数。默认自动选择；一般物理核心数优于逻辑核心数。"
+  - name: num_keep
+    scope: request
+    category: memory-parallel
+    apiField: options.num_keep
+    type: integer
+    default: 5
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Tokens kept from the start of the prompt when the context is trimmed, protecting system prompts from being evicted."
+      zh: "上下文裁剪时从开头保留的 token 数，用于保护 system prompt 不被逐出。"
+  - name: num_batch
+    scope: request
+    category: scheduler
+    apiField: options.num_batch
+    type: integer
+    default: 512
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Logical batch size for prompt processing (passed through to the llama.cpp runner). Larger values speed up prefill at higher memory cost."
+      zh: "prompt 处理的逻辑批大小（透传给 llama.cpp runner）。调大加速预填充但增加显存占用。"
+  - name: use_mmap
+    scope: request
+    category: memory-parallel
+    apiField: options.use_mmap
+    type: boolean
+    default: true
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "Memory-map model files instead of reading them eagerly. Faster startup; disable on low-RAM machines to avoid page-cache pressure."
+      zh: "用内存映射（mmap）方式加载模型文件，启动更快；低内存机器可关闭以减少页缓存压力。"
+  - name: use_numa
+    scope: request
+    category: memory-parallel
+    apiField: options.use_numa
+    type: boolean
+    default: false
+    status: runtime-only
+    since: "0.12"
+    description:
+      en: "NUMA-aware allocation for multi-socket servers. Irrelevant on typical desktops."
+      zh: "多路服务器上的 NUMA 感知内存分配。普通桌面机无需关心。"

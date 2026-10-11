@@ -1,0 +1,196 @@
+# TGI parameter registry — ARCHIVED ENGINE, frozen reference.
+# huggingface/text-generation-inference was archived 2026-03 (Apache-2.0).
+# Metadata from the launcher CLI reference, frozen at the last release.
+engine: tgi
+displayName: TGI (text-generation-inference)
+homepage: https://huggingface.co/docs/text-generation-inference/index
+status: archived
+apiStyle: OpenAI-compatible (Messages API / TGI Generate)
+launchHint:
+  en: "text-generation-launcher --model-id <model> — endpoint at http://127.0.0.1:80/v1 (project archived 2026-03)"
+  zh: "text-generation-launcher --model-id <model> — 端点位于 http://127.0.0.1:80/v1（项目已于 2026-03 归档）"
+source: "https://huggingface.co/docs/text-generation-inference/reference/launcher"
+
+categories:
+  - id: sampling
+    name: { en: "Sampling & generation control", zh: "采样与生成控制" }
+  - id: scheduler
+    name: { en: "Batching & admission", zh: "批处理与准入控制" }
+  - id: memory-parallel
+    name: { en: "Memory & parallelism", zh: "显存与并行" }
+  - id: quantization
+    name: { en: "Quantization & precision", zh: "量化与精度" }
+  - id: server
+    name: { en: "Server & networking", zh: "服务与网络" }
+
+params:
+  - name: temperature
+    scope: request
+    category: sampling
+    apiField: temperature
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 2.0 }
+    status: archived
+    description:
+      en: "Sampling temperature (frozen reference — engine archived)."
+      zh: "采样温度（引擎已归档，此为冻结参考值）。"
+  - name: top_p
+    scope: request
+    category: sampling
+    apiField: top_p
+    type: number
+    default: 1.0
+    status: archived
+    description:
+      en: "Nucleus sampling threshold."
+      zh: "核采样阈值。"
+  - name: top_k
+    scope: request
+    category: sampling
+    apiField: top_k
+    type: integer
+    status: archived
+    description:
+      en: "Keep only the k most likely tokens; null/absent disables the filter."
+      zh: "只在概率最高的 k 个 token 内采样；不填禁用过滤。"
+  - name: max_new_tokens
+    scope: request
+    category: sampling
+    apiField: max_new_tokens
+    type: integer
+    default: 100
+    status: archived
+    description:
+      en: "Maximum generated tokens (TGI's own name for what OpenAI calls max_tokens)."
+      zh: "最大生成 token 数（即 OpenAI 的 max_tokens 在 TGI 中的叫法）。"
+  - name: repetition_penalty
+    scope: request
+    category: sampling
+    apiField: repetition_penalty
+    type: number
+    status: archived
+    description:
+      en: "Multiplicative penalty for tokens already present in the output."
+      zh: "对输出中已出现 token 的乘性惩罚。"
+  - name: truncate
+    scope: request
+    category: sampling
+    apiField: truncate
+    type: integer
+    status: archived
+    description:
+      en: "Truncate the prompt to the last N tokens before inference instead of rejecting over-length input."
+      zh: "推理前把 prompt 截断为最后 N 个 token（而非拒绝超长输入）。"
+  - name: max-input-length
+    scope: server
+    category: scheduler
+    flag: "--max-input-length"
+    type: integer
+    default: 1024
+    status: archived
+    description:
+      en: "Maximum accepted input length; longer requests are rejected with a validation error."
+      zh: "允许的最大输入长度；超限请求直接拒绝。"
+  - name: max-total-tokens
+    scope: server
+    category: scheduler
+    flag: "--max-total-tokens"
+    type: integer
+    default: 4096
+    status: archived
+    description:
+      en: "Per-request token budget (input + output). The main admission-control knob alongside max-input-length."
+      zh: "单请求 token 预算（输入 + 输出）。与 max-input-length 共同构成准入控制主旋钮。"
+  - name: max-batch-prefill-tokens
+    scope: server
+    category: scheduler
+    flag: "--max-batch-prefill-tokens"
+    type: integer
+    default: 4096
+    status: archived
+    description:
+      en: "Total prefill token budget per batch; bounds the compute spike of one scheduler step."
+      zh: "单批次预填充 token 预算，限制单个调度 step 的算力尖峰。"
+  - name: max-concurrent-requests
+    scope: server
+    category: scheduler
+    flag: "--max-concurrent-requests"
+    type: integer
+    default: 128
+    status: archived
+    description:
+      en: "In-flight request limit; excess requests get a 429, so benchmark concurrency beyond this is rejected rather than queued."
+      zh: "在途请求上限；超出的请求收到 429——压测并发超过它时是被拒而非排队，对比测试时要留意。"
+  - name: quantize
+    scope: server
+    category: quantization
+    flag: "--quantize"
+    type: enum
+    choices: [bitsandbytes, gptq, awq, eetq, exl2, fp8, marlin]
+    status: archived
+    description:
+      en: "Weight quantization backend (frozen list at archive time)."
+      zh: "权重量化后端（归档时冻结的取值列表）。"
+  - name: dtype
+    scope: server
+    category: quantization
+    flag: "--dtype"
+    type: enum
+    default: float16
+    choices: [float16, bfloat16, float32]
+    status: archived
+    description:
+      en: "Computation precision; bfloat16 preferred on Ampere+."
+      zh: "计算精度；Ampere 及以后显卡优先 bfloat16。"
+  - name: cuda-memory-fraction
+    scope: server
+    category: memory-parallel
+    flag: "--cuda-memory-fraction"
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 1.0 }
+    status: archived
+    description:
+      en: "Fraction of GPU memory the allocator may reserve; lower it to share the card with other processes."
+      zh: "显存分配器可预留的比例；调低可与其他进程共享显卡。"
+  - name: num-shard
+    scope: server
+    category: memory-parallel
+    flag: "--num-shard"
+    type: integer
+    default: 1
+    status: archived
+    description:
+      en: "Number of model shards (one per GPU by default)."
+      zh: "模型分片数（默认每 GPU 一片）。"
+  - name: sharded
+    scope: server
+    category: memory-parallel
+    flag: "--sharded"
+    type: boolean
+    default: false
+    status: archived
+    description:
+      en: "Force tensor-parallel sharding even on a single GPU (for LOMAR/Zeus-style setups)."
+      zh: "即使在单卡上也强制张量并行分片（用于 LOMAR/Zeus 类部署）。"
+  - name: hostname
+    scope: server
+    category: server
+    flag: "--hostname"
+    type: string
+    default: "0.0.0.0"
+    status: archived
+    description:
+      en: "Bind address."
+      zh: "监听地址。"
+  - name: port
+    scope: server
+    category: server
+    flag: "--port"
+    type: integer
+    default: 80
+    status: archived
+    description:
+      en: "HTTP port (TGI defaults to 80, unlike most local engines)."
+      zh: "HTTP 端口（TGI 默认 80，与多数本地引擎不同）。"

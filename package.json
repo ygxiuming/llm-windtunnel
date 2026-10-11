@@ -1,0 +1,29 @@
+{
+  "name": "llm-windtunnel",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A wind tunnel for LLM inference engines — benchmark vLLM, Ollama, llama.cpp, TGI and any OpenAI-compatible endpoint, with bilingual parameter explanations.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ygxiuming/llm-windtunnel.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w server && npm run typecheck -w web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,45 @@
+# ============================================================
+# llm-windtunnel parameter registry — format reference & template
+#
+# This file documents the YAML format understood by the server
+# (server/src/registry.ts validates against zod schemas in
+# @windtunnel/shared). It is documentation, not runtime data.
+#
+# Runtime files live under engines/<engine>.yaml.
+# ============================================================
+
+engine: my-engine              # 稳定 id（URL 与代码引用使用），kebab-case
+displayName: My Engine         # UI 展示名
+homepage: https://example.com  # 官网/文档首页
+status: active                 # active | archived（归档引擎参数冻结，如 TGI）
+apiStyle: OpenAI-compatible    # API 风格一句话描述
+
+launchHint:                    # 如何启动引擎（双语）
+  en: "Launch with: myengine serve --port 8000"
+  zh: "启动方式：myengine serve --port 8000"
+
+source: "https://example.com/docs/params"  # 元数据提取来源
+
+categories:                    # 本引擎用到的分类（五个标准 id，见下）
+  - id: sampling               # sampling | scheduler | memory-parallel | quantization | server
+    name:
+      en: "Sampling & generation control"
+      zh: "采样与生成控制"
+
+params:
+  - name: temperature          # 引擎的规范参数名
+    scope: request             # request（请求体/options 内）| server（启动参数，需填 flag）
+    category: sampling
+    apiField: temperature      # request 参数：请求体字段或 options 路径（如 options.num_ctx）
+    # flag: --temperature      # server 参数：CLI flag
+    type: number               # number | integer | string | boolean | string[] | enum
+    default: 1.0
+    range:
+      min: 0.0
+      max: 2.0
+    # choices: [fcfs, priority] # type: enum 时必填
+    status: documented         # documented | runtime-only | archived
+    since: "1.0"               # 元数据核对时的引擎版本
+    description:               # 中英双语，单一数据源，UI tooltip 直接读取
+      en: "Controls randomness. Lower values make output more deterministic."
+      zh: "控制随机性。值越低输出越确定，越高越多样。"

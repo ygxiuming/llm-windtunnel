@@ -1,0 +1,305 @@
+# llama.cpp parameter registry (llama-server)
+# Metadata from tools/server/README.md tables (verified 2026-10); source of truth: common/arg.cpp.
+engine: llama-cpp
+displayName: llama.cpp (llama-server)
+homepage: https://github.com/ggml-org/llama.cpp
+status: active
+apiStyle: OpenAI-compatible + Anthropic-compatible
+launchHint:
+  en: "llama-server -m model.gguf --port 8080 — endpoint at http://127.0.0.1:8080/v1"
+  zh: "llama-server -m model.gguf --port 8080 — 端点位于 http://127.0.0.1:8080/v1"
+source: "https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md"
+
+categories:
+  - id: sampling
+    name: { en: "Sampling & generation control", zh: "采样与生成控制" }
+  - id: scheduler
+    name: { en: "Batching & slots", zh: "批处理与并发槽" }
+  - id: memory-parallel
+    name: { en: "Memory & hardware", zh: "显存与硬件" }
+  - id: quantization
+    name: { en: "Quantization & precision", zh: "量化与精度" }
+  - id: server
+    name: { en: "Server & networking", zh: "服务与网络" }
+
+params:
+  # ---------- request scope (OpenAI-compatible body / server defaults) ----------
+  - name: temperature
+    scope: request
+    category: sampling
+    apiField: temperature
+    type: number
+    default: 0.8
+    range: { min: 0.0, max: 2.0 }
+    since: "b6xxx"
+    description:
+      en: "Sampling temperature (server default 0.8 unless overridden with --temp). Note llama.cpp's default differs from OpenAI's 1.0."
+      zh: "采样温度（未用 --temp 覆盖时服务端默认 0.8）。注意 llama.cpp 默认值与 OpenAI 的 1.0 不同。"
+  - name: top_p
+    scope: request
+    category: sampling
+    apiField: top_p
+    type: number
+    default: 0.95
+    range: { min: 0.0, max: 1.0 }
+    since: "b6xxx"
+    description:
+      en: "Nucleus sampling threshold (server default 0.95)."
+      zh: "核采样阈值（服务端默认 0.95）。"
+  - name: top_k
+    scope: request
+    category: sampling
+    apiField: top_k
+    type: integer
+    default: 40
+    range: { min: -1, max: 1000 }
+    since: "b6xxx"
+    description:
+      en: "Keep only the k most likely tokens (server default 40). ≤ 0 disables."
+      zh: "只在概率最高的 k 个 token 内采样（服务端默认 40）。小于等于 0 禁用。"
+  - name: min_p
+    scope: request
+    category: sampling
+    apiField: min_p
+    type: number
+    default: 0.05
+    range: { min: 0.0, max: 1.0 }
+    since: "b6xxx"
+    description:
+      en: "Probability floor relative to the top token (server default 0.05). llama.cpp enables it by default, unlike OpenAI."
+      zh: "相对最高概率 token 的概率下限（服务端默认 0.05）。llama.cpp 默认启用 min_p，这点与 OpenAI 不同。"
+  - name: max_tokens
+    scope: request
+    category: sampling
+    apiField: max_tokens
+    type: integer
+    since: "b6xxx"
+    description:
+      en: "Maximum tokens to generate (mapped to n_predict internally). Omitted = generate until EOS or context end."
+      zh: "最大生成 token 数（内部映射为 n_predict）。不填则生成到 EOS 或上下文结束。"
+  - name: presence_penalty
+    scope: request
+    category: sampling
+    apiField: presence_penalty
+    type: number
+    default: 0.0
+    range: { min: -2.0, max: 2.0 }
+    since: "b6xxx"
+    description:
+      en: "One-time additive penalty for tokens that appeared in the output."
+      zh: "对输出中出现过的 token 施加一次性加性惩罚。"
+  - name: frequency_penalty
+    scope: request
+    category: sampling
+    apiField: frequency_penalty
+    type: number
+    default: 0.0
+    range: { min: -2.0, max: 2.0 }
+    since: "b6xxx"
+    description:
+      en: "Additive penalty scaled by each token's occurrence count."
+      zh: "按 token 出现次数成比例的加性惩罚。"
+  - name: seed
+    scope: request
+    category: sampling
+    apiField: seed
+    type: integer
+    default: -1
+    since: "b6xxx"
+    description:
+      en: "Random seed; -1 picks a random seed per request."
+      zh: "随机种子；-1 表示每条请求随机。"
+  - name: stop
+    scope: request
+    category: sampling
+    apiField: stop
+    type: string[]
+    since: "b6xxx"
+    description:
+      en: "Stop strings that halt generation when produced."
+      zh: "停止字符串，输出即终止。"
+
+  # ---------- server scope (launch flags) ----------
+  - name: ctx-size
+    scope: server
+    category: memory-parallel
+    flag: "--ctx-size (-c)"
+    type: integer
+    default: 4096
+    since: "b6xxx"
+    description:
+      en: "Total context window shared by all parallel slots. The most impactful memory knob — KV cache scales roughly linearly with it. 0 = model maximum."
+      zh: "所有并发槽共享的总上下文窗口。对显存影响最大的旋钮——KV cache 随它近似线性增长。设 0 表示用模型上限。"
+  - name: parallel
+    scope: server
+    category: scheduler
+    flag: "--parallel (-np)"
+    type: integer
+    default: 1
+    range: { min: 1, max: 256 }
+    since: "b6xxx"
+    description:
+      en: "Number of independent decoding slots (concurrent sequences). The context is divided evenly among slots, so raise ctx-size accordingly when scaling this up."
+      zh: "独立解码槽（并发序列）数量。上下文会被槽均分——调大并发时需同步调大 ctx-size。"
+  - name: cont-batching
+    scope: server
+    category: scheduler
+    flag: "--cont-batching / --no-cont-batching"
+    type: boolean
+    default: true
+    since: "b6xxx"
+    description:
+      en: "Continuous (dynamic) batching — join in-flight requests into one decode batch every step. On by default; disabling it serializes requests and tanks throughput under concurrency."
+      zh: "连续（动态）批处理——每步都把在途请求合并进同一解码批次。默认开启；关闭后并发请求串行，吞吐会大幅下降。"
+  - name: n-gpu-layers
+    scope: server
+    category: memory-parallel
+    flag: "--n-gpu-layers (-ngl)"
+    type: integer
+    since: "b6xxx"
+    description:
+      en: "How many transformer layers to offload to GPU. Large values (e.g. 999) offload everything; lower it to keep part on CPU and profile the CPU/GPU split impact on TTFT and throughput."
+      zh: "卸载到 GPU 的 transformer 层数。设大值（如 999）全部卸载；调低可让部分层留在 CPU，用于分析 CPU/GPU 混合对 TTFT 与吞吐的影响。"
+  - name: flash-attn
+    scope: server
+    category: memory-parallel
+    flag: "--flash-attn (-fa)"
+    type: boolean
+    since: "b6xxx"
+    description:
+      en: "FlashAttention kernels. Reduces memory and speeds up long-context attention; recent builds auto-detect, and KV-cache quantization (cache-type-k/v) requires it."
+      zh: "FlashAttention 核函数。省显存并加速长上下文注意力；新版本可自动启用，KV cache 量化（cache-type-k/v）依赖它。"
+  - name: cache-type-k
+    scope: server
+    category: quantization
+    flag: "--cache-type-k (-ctk)"
+    type: enum
+    default: f16
+    choices: [f32, f16, bf16, q8_0, q5_1, q5_0, q4_1, q4_0]
+    since: "b6xxx"
+    description:
+      en: "KV cache K precision. Quantizing to q8_0 halves cache memory with tiny quality loss — a cheap concurrency boost when KV-bound (requires flash-attn)."
+      zh: "KV cache 中 K 的精度。量化到 q8_0 可省一半 cache 显存，质量损失极小——KV 受限时提升并发的廉价手段（需开启 flash-attn）。"
+  - name: cache-type-v
+    scope: server
+    category: quantization
+    flag: "--cache-type-v (-ctv)"
+    type: enum
+    default: f16
+    choices: [f32, f16, bf16, q8_0, q5_1, q5_0, q4_1, q4_0]
+    since: "b6xxx"
+    description:
+      en: "KV cache V precision; same trade-off as cache-type-k (requires flash-attn)."
+      zh: "KV cache 中 V 的精度；取舍同 cache-type-k（需开启 flash-attn）。"
+  - name: threads
+    scope: server
+    category: memory-parallel
+    flag: "--threads (-t)"
+    type: integer
+    default: "auto"
+    since: "b6xxx"
+    description:
+      en: "CPU threads for CPU-side computation. Defaults to an auto-detected value; physical-core counts usually win. Matters most when layers stay on CPU."
+      zh: "CPU 计算线程数。默认自动检测；物理核心数通常更优。当部分层留在 CPU 时影响显著。"
+  - name: repeat-penalty
+    scope: server
+    category: sampling
+    flag: "--repeat-penalty"
+    type: number
+    default: 1.0
+    since: "b6xxx"
+    description:
+      en: "Server-default repetition penalty (llama.cpp-native sampler, applies when the request does not override it)."
+      zh: "服务端默认重复惩罚（llama.cpp 原生采样器；请求未覆盖时生效）。"
+  - name: repeat-last-n
+    scope: server
+    category: sampling
+    flag: "--repeat-last-n"
+    type: integer
+    default: 64
+    since: "b6xxx"
+    description:
+      en: "Window over which repeat-penalty applies (server default)."
+      zh: "重复惩罚作用窗口（服务端默认值）。"
+  - name: typical
+    scope: server
+    category: sampling
+    flag: "--typical"
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 2.0 }
+    since: "b6xxx"
+    description:
+      en: "Locally typical sampling mass. 1.0 disables it; values below 1.0 filter tokens whose surprisal deviates strongly from the conditional average."
+      zh: "局部典型采样（locally typical sampling）。1.0 关闭；小于 1.0 时过滤掉与条件平均惊喜度偏差过大的 token。"
+  - name: mirostat
+    scope: server
+    category: sampling
+    flag: "--mirostat"
+    type: integer
+    default: 0
+    choices: ["0", "1", "2"]
+    since: "b6xxx"
+    description:
+      en: "Mirostat perplexity control (0 off / 1 Mirostat 1.0 / 2 Mirostat 2.0), with --mirostat-tau (target entropy, default 5.0) and --mirostat-lr (learning rate, default 0.1)."
+      zh: "Mirostat 困惑度控制（0 关闭 / 1 Mirostat 1.0 / 2 Mirostat 2.0），配套 --mirostat-tau（目标熵，默认 5.0）与 --mirostat-lr（学习率，默认 0.1）。"
+  - name: samplers
+    scope: server
+    category: sampling
+    flag: "--samplers"
+    type: string
+    default: "top_k;typical;top_p;min_p;xtc;temperature"
+    since: "b6xxx"
+    description:
+      en: "Ordered chain of sampling stages (semicolon-separated). Reordering the chain changes results — llama.cpp exposes sampler composition that vLLM/Ollama do not."
+      zh: "采样器流水线（分号分隔、按序执行）。调整顺序会改变输出——llama.cpp 暴露了 vLLM/Ollama 没有的采样器组合能力。"
+  - name: host
+    scope: server
+    category: server
+    flag: "--host"
+    type: string
+    default: "127.0.0.1"
+    since: "b6xxx"
+    description:
+      en: "Bind address; 0.0.0.0 to accept remote connections."
+      zh: "监听地址；0.0.0.0 接受远程连接。"
+  - name: port
+    scope: server
+    category: server
+    flag: "--port"
+    type: integer
+    default: 8080
+    range: { min: 1, max: 65535 }
+    since: "b6xxx"
+    description:
+      en: "HTTP port. Defaults to 8080 — watch for clashes with other local services (this tool's own web UI deliberately uses 8787)."
+      zh: "HTTP 端口。默认 8080——注意避免与其他本地服务冲突（本工具的 Web UI 特意用 8787 端口）。"
+  - name: api-key
+    scope: server
+    category: server
+    flag: "--api-key"
+    type: string
+    since: "b6xxx"
+    description:
+      en: "Require the given Bearer key (repeatable, also --api-key-file). Empty = no auth."
+      zh: "要求携带指定 Bearer key（可多次传入，另有 --api-key-file）。为空则不鉴权。"
+  - name: metrics
+    scope: server
+    category: server
+    flag: "--metrics"
+    type: boolean
+    default: false
+    since: "b6xxx"
+    description:
+      en: "Expose a Prometheus /metrics endpoint (tokens/sec, KV usage, slot states) — the easiest way to correlate bench results with server-side counters."
+      zh: "暴露 Prometheus /metrics 端点（token 速率、KV 使用率、槽状态）——把压测结果与服务端指标对齐的最简单方式。"
+  - name: webui
+    scope: server
+    category: server
+    flag: "--ui / --no-webui"
+    type: boolean
+    default: true
+    since: "b6xxx"
+    description:
+      en: "Built-in WebUI (React app under tools/ui). Disable with --no-webui when the server is dedicated to API benchmarks."
+      zh: "内置 WebUI（tools/ui 下的 React 应用）。把服务器专职用于 API 压测时可用 --no-webui 关闭。"

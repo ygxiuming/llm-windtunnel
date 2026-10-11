@@ -1,0 +1,354 @@
+# vLLM parameter registry
+# English metadata extracted from docs.vllm.ai (EngineArgs / SamplingParams), verified against v0.31.
+engine: vllm
+displayName: vLLM
+homepage: https://docs.vllm.ai/
+status: active
+apiStyle: OpenAI-compatible (+ native extensions)
+launchHint:
+  en: "vllm serve <model> --port 8000 — endpoint at http://127.0.0.1:8000/v1"
+  zh: "vllm serve <model> --port 8000 — 端点位于 http://127.0.0.1:8000/v1"
+source: "https://docs.vllm.ai/en/latest/configuration/engine_args/ + vllm/sampling_params.py"
+
+categories:
+  - id: sampling
+    name: { en: "Sampling & generation control", zh: "采样与生成控制" }
+  - id: scheduler
+    name: { en: "Scheduling & batching", zh: "调度与批处理" }
+  - id: memory-parallel
+    name: { en: "Memory & parallelism", zh: "显存与并行" }
+  - id: quantization
+    name: { en: "Quantization & precision", zh: "量化与精度" }
+  - id: server
+    name: { en: "Server & networking", zh: "服务与网络" }
+
+params:
+  # ---------- request scope: SamplingParams ----------
+  - name: temperature
+    scope: request
+    category: sampling
+    apiField: temperature
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 2.0 }
+    since: "0.31"
+    description:
+      en: "Controls randomness of sampling. Values near 0 make output nearly deterministic (greedy); higher values increase diversity and creativity. 0 disables sampling entirely."
+      zh: "控制采样随机性。接近 0 时输出几乎确定（贪心解码），越高越发散、越有创造性。设为 0 时完全关闭随机采样。"
+  - name: top_p
+    scope: request
+    category: sampling
+    apiField: top_p
+    type: number
+    default: 1.0
+    range: { min: 0.0, max: 1.0 }
+    since: "0.31"
+    description:
+      en: "Nucleus sampling: only sample from the smallest set of tokens whose cumulative probability exceeds p. 1.0 disables the filter. Lower it to cut off the long tail of unlikely tokens."
+      zh: "核采样（nucleus sampling）：只在累计概率达到 p 的最小 token 集合内采样。1.0 表示不过滤；调低可截掉低概率长尾 token，抑制胡言乱语。"
+  - name: top_k
+    scope: request
+    category: sampling
+    apiField: top_k
+    type: integer
+    default: -1
+    range: { min: -1, max: 1000 }
+    since: "0.31"
+    description:
+      en: "Only sample from the k most likely tokens. Values <= 0 (e.g. -1, the default) disable the filter. Typical values are 20-100; smaller makes output more conservative."
+      zh: "只在概率最高的 k 个 token 内采样。小于等于 0（如默认 -1）表示禁用过滤。常用 20-100；越小越保守。"
+  - name: min_p
+    scope: request
+    category: sampling
+    apiField: min_p
+    type: number
+    default: 0.0
+    range: { min: 0.0, max: 1.0 }
+    since: "0.31"
+    description:
+      en: "Discards tokens whose probability is below min_p × (probability of the top token). An alternative to top_p that adapts to the shape of the distribution; 0 disables it."
+      zh: "丢弃概率低于「最高概率 token × min_p」的候选。相比 top_p 能自适应分布形状；0 表示禁用。"
+  - name: max_tokens
+    scope: request
+    category: sampling
+    apiField: max_tokens
+    type: integer
+    default: 16
+    range: { min: 1, max: 1000000 }
+    since: "0.31"
+    description:
+      en: "Maximum number of tokens to generate per request. vLLM's API default is a small 16 — most benchmarks raise it explicitly (e.g. 128-1024) to measure realistic decode throughput."
+      zh: "单请求最大生成 token 数。vLLM API 默认仅 16，做性能测试时应显式调大（如 128-1024）以测出真实的解码吞吐。"
+  - name: repetition_penalty
+    scope: request
+    category: sampling
+    apiField: repetition_penalty
+    type: number
+    default: 1.0
+    range: { min: 0.1, max: 2.0 }
+    since: "0.31"
+    description:
+      en: "Multiplicative penalty applied to tokens that already appeared in the output. Values > 1 discourage repetition, < 1 encourage it. 1.0 disables the effect."
+      zh: "对已出现过的 token 施加乘性惩罚。大于 1 抑制重复，小于 1 鼓励重复，1.0 为不生效。"
+  - name: presence_penalty
+    scope: request
+    category: sampling
+    apiField: presence_penalty
+    type: number
+    default: 0.0
+    range: { min: -2.0, max: 2.0 }
+    since: "0.31"
+    description:
+      en: "Additive penalty applied once to each token that has appeared at least once in the output. Positive values reduce repetition; extreme values can degrade quality."
+      zh: "对输出中出现过的 token 施加一次性的加性惩罚。正值可减少重复；取值过大会明显损害质量。"
+  - name: frequency_penalty
+    scope: request
+    category: sampling
+    apiField: frequency_penalty
+    type: number
+    default: 0.0
+    range: { min: -2.0, max: 2.0 }
+    since: "0.31"
+    description:
+      en: "Penalty scaled by how many times a token has already appeared. Positive values strongly discourage frequent repetition of the same tokens."
+      zh: "按 token 已出现次数成比例施加的惩罚。正值能有效抑制同一 token 反复出现。"
+  - name: n
+    scope: request
+    category: sampling
+    apiField: n
+    type: integer
+    default: 1
+    range: { min: 1, max: 128 }
+    since: "0.31"
+    description:
+      en: "Number of output sequences to generate per prompt. n > 1 shares the prompt prefill across candidates, which is much cheaper than sending n separate requests."
+      zh: "每个 prompt 生成几条候选序列。n 大于 1 时多条候选共享预填充，远比发 n 个独立请求便宜。"
+  - name: seed
+    scope: request
+    category: sampling
+    apiField: seed
+    type: integer
+    since: "0.31"
+    description:
+      en: "Random seed for reproducible sampling. Fix it (plus temperature/top_p) to get repeatable outputs when comparing parameter changes."
+      zh: "随机种子。固定种子（配合固定 temperature/top_p）可获得可复现的输出，便于对比参数改动的影响。"
+  - name: stop
+    scope: request
+    category: sampling
+    apiField: stop
+    type: string[]
+    since: "0.31"
+    description:
+      en: "List of stop strings. Generation halts when any of them appears in the output. Useful for cutting off templated trailing content."
+      zh: "停止字符串列表，输出中出现任意一个即终止生成。常用于截掉模板化的尾部内容。"
+  - name: ignore_eos
+    scope: request
+    category: sampling
+    apiField: ignore_eos
+    type: boolean
+    default: false
+    since: "0.31"
+    description:
+      en: "Continue generating past the EOS token until max_tokens. Benchmarks often enable it so every request produces the full requested length, making throughput numbers comparable."
+      zh: "忽略 EOS 结束符，一直生成到 max_tokens。性能测试常开启它，保证每条请求都打满请求长度，让吞吐数据可横向比较。"
+
+  # ---------- server scope: EngineArgs ----------
+  - name: max_model_len
+    scope: server
+    category: memory-parallel
+    flag: "--max-model-len"
+    type: integer
+    default: "model-defined"
+    since: "0.31"
+    description:
+      en: "Maximum sequence length (prompt + generated tokens) the engine will accept. Lower it to reduce KV-cache memory per sequence and fit more concurrent requests; requests above the limit are rejected."
+      zh: "引擎允许的最大序列长度（prompt + 生成）。调小可降低单序列 KV cache 显存占用、容纳更多并发；超限请求会被拒绝。"
+  - name: max_num_seqs
+    scope: server
+    category: scheduler
+    flag: "--max-num-seqs"
+    type: integer
+    default: "1024 (V1) / 256 (V0)"
+    range: { min: 1, max: 4096 }
+    since: "0.31"
+    description:
+      en: "Maximum number of sequences (requests) processed in a single engine step. The key batching knob: higher values raise throughput on small models but can increase per-token latency. Core sweep target."
+      zh: "单个引擎 step 内最多并行处理的序列（请求）数。批处理核心旋钮：调大通常提升小模型的吞吐，但可能推高逐 token 延迟。参数扫描的核心对象。"
+  - name: max_num_batched_tokens
+    scope: server
+    category: scheduler
+    flag: "--max-num-batched-tokens"
+    type: integer
+    default: "8192 (V1) / 2048 (V0)"
+    since: "0.31"
+    description:
+      en: "Maximum number of tokens batched into one scheduler step (prefill chunks + decodes). Controls the chunked-prefill granularity and the throughput/latency trade-off; must exceed max_model_len when chunked prefill is on."
+      zh: "单个调度 step 可批处理的 token 总量（预填充分块 + 解码）。决定分块预填充粒度与吞吐/延迟权衡；开启分块预填充时必须大于 max_model_len。"
+  - name: scheduler_policy
+    scope: server
+    category: scheduler
+    flag: "--scheduler-policy"
+    type: enum
+    default: fcfs
+    choices: [fcfs, priority]
+    since: "0.31"
+    description:
+      en: "How waiting requests are ordered: fcfs (first come first served) or priority (honours request priority field). fcfs avoids starvation of early requests."
+      zh: "等待请求的排序策略：fcfs 先来先服务，或 priority 按 priority 字段优先。fcfs 可避免早到请求被饿死。"
+  - name: enable_prefix_caching
+    scope: server
+    category: scheduler
+    flag: "--enable-prefix-caching / --no-enable-prefix-caching"
+    type: boolean
+    default: true
+    since: "0.31"
+    description:
+      en: "Cache and reuse KV blocks of shared prefixes (system prompts, multi-turn history). Dramatically lowers TTFT for overlapping prompts; enabled by default in V1. Disable to measure cold-cache performance."
+      zh: "缓存并复用相同前缀（system prompt、多轮历史）的 KV block，可大幅降低命中请求的 TTFT；V1 默认开启。测冷启动性能时可关闭。"
+  - name: chunked_prefill
+    scope: server
+    category: scheduler
+    flag: "--enable-chunked-prefill / --no-enable-chunked-prefill"
+    type: boolean
+    default: true
+    since: "0.31"
+    description:
+      en: "Split long prompt prefill into chunks interleaved with decode steps, so a huge prompt no longer blocks other requests' token generation. Default-on in V1; smoothing ITL is its main benefit."
+      zh: "把长 prompt 的预填充切成分块与解码步骤交错执行，避免超长 prompt 阻塞其他请求的逐 token 生成。V1 默认开启；主要收益是平滑 ITL。"
+  - name: gpu_memory_utilization
+    scope: server
+    category: memory-parallel
+    flag: "--gpu-memory-utilization"
+    type: number
+    default: 0.9
+    range: { min: 0.0, max: 1.0 }
+    since: "0.31"
+    description:
+      en: "Fraction of total GPU memory vLLM may use (weights + KV cache). Lower it to leave room for other processes; higher values enlarge the KV cache and raise max concurrency. Core sweep target."
+      zh: "vLLM 可使用的显存比例（权重 + KV cache）。调低可为其他进程留显存；调大可扩大 KV cache、提高并发上限。参数扫描的核心对象。"
+  - name: swap_space
+    scope: server
+    category: memory-parallel
+    flag: "--swap-space"
+    type: number
+    default: 4
+    range: { min: 0, max: 100 }
+    since: "0.31"
+    description:
+      en: "Per-GPU CPU RAM (GiB) used to swap out evicted sequences (V0 engine). In V1, preemption recomputes instead of swapping, so this knob mostly matters on legacy V0 deployments."
+      zh: "每块 GPU 用于换出被驱逐序列的 CPU 内存（GiB），仅 V0 引擎使用。V1 改为重算式抢占，该参数主要影响旧 V0 部署。"
+  - name: tensor_parallel_size
+    scope: server
+    category: memory-parallel
+    flag: "--tensor-parallel-size"
+    type: integer
+    default: 1
+    range: { min: 1, max: 64 }
+    since: "0.31"
+    description:
+      en: "Tensor-parallel degree: split each layer across N GPUs. Required when a model does not fit on one card; usually lowers latency but needs fast interconnect (NVLink) to pay off. Must match the actual GPU count."
+      zh: "张量并行度：把每一层切分到 N 张卡。模型单卡放不下时必须使用；通常降低延迟，但需要高速互联（NVLink）才能划算。必须与实际 GPU 数匹配。"
+  - name: pipeline_parallel_size
+    scope: server
+    category: memory-parallel
+    flag: "--pipeline-parallel-size"
+    type: integer
+    default: 1
+    range: { min: 1, max: 64 }
+    since: "0.31"
+    description:
+      en: "Pipeline-parallel degree: split layers into N stages across GPUs. Composes with tensor parallelism for multi-node; adds bubble overhead at low batch sizes."
+      zh: "流水线并行度：把模型层分成 N 个阶段放到多卡。常与张量并行组合用于多机；小批次时会引入流水线气泡开销。"
+  - name: kv_cache_dtype
+    scope: server
+    category: quantization
+    flag: "--kv-cache-dtype"
+    type: enum
+    default: auto
+    choices: [auto, fp8, fp8_e5m2, fp8_e4m3]
+    since: "0.31"
+    description:
+      en: "Data type of the KV cache. fp8 halves cache memory (≈2× max concurrency) at a small accuracy cost — a high-leverage sweep target for throughput-bound workloads."
+      zh: "KV cache 的数据类型。fp8 可把 cache 显存减半（并发上限约翻倍），精度损失很小——是吞吐受限场景的高性价比扫描对象。"
+  - name: quantization
+    scope: server
+    category: quantization
+    flag: "--quantization"
+    type: enum
+    default: auto
+    choices: [auto, awq, gptq, gptq_marlin, fp8, int8_w8a8, compressed-tensors, bitsandbytes]
+    since: "0.31"
+    description:
+      en: "Quantization method for the weights. auto infers from the checkpoint. Compressed weights shrink memory and speed up memory-bound decode, but may affect quality — always re-evaluate after switching."
+      zh: "权重量化方法。auto 会从 checkpoint 自动推断。压缩权重可省显存并加速受带宽限制的解码阶段，但可能影响质量——切换后务必重新评估。"
+  - name: dtype
+    scope: server
+    category: quantization
+    flag: "--dtype"
+    type: enum
+    default: auto
+    choices: [auto, half, bfloat16, float]
+    since: "0.31"
+    description:
+      en: "Weight/computation precision. auto uses the checkpoint dtype (fp16/bf16). half fixes fp16, float is fp32 (slow, debugging only). bf16 is preferred on Ampere+ GPUs."
+      zh: "权重与计算精度。auto 跟随 checkpoint（fp16/bf16）；half 强制 fp16；float 为 fp32（慢，仅调试用）。Ampere 及以后显卡优先 bfloat16。"
+  - name: load_format
+    scope: server
+    category: quantization
+    flag: "--load-format"
+    type: enum
+    default: auto
+    choices: [auto, safetensors, npcache, dummy, sharded_state, gguf, bitsandbytes, mistral]
+    since: "0.31"
+    description:
+      en: "Weight file format for loading. dummy skips loading real weights entirely — useful for quickly validating engine/scheduler changes without model download."
+      zh: "权重加载格式。dummy 完全跳过真实权重加载——用于不下载模型就快速验证引擎/调度器改动的场景。"
+  - name: enforce_eager
+    scope: server
+    category: memory-parallel
+    flag: "--enforce-eager"
+    type: boolean
+    default: false
+    since: "0.31"
+    description:
+      en: "Disable CUDA Graph capture and run eager mode. Saves the extra memory graphs require and simplifies debugging, but adds per-step CPU launch overhead (higher ITL/TPOT)."
+      zh: "禁用 CUDA Graph，以 eager 模式运行。可省下 graph 占用的显存、便于调试，但每步都有 CPU 启动开销（ITL/TPOT 变高）。"
+  - name: host
+    scope: server
+    category: server
+    flag: "--host"
+    type: string
+    default: "127.0.0.1"
+    since: "0.31"
+    description:
+      en: "Bind address. 127.0.0.1 (default) only accepts local connections; set 0.0.0.0 inside containers/servers to accept remote ones."
+      zh: "监听地址。默认 127.0.0.1 仅接受本机连接；容器或服务器上设为 0.0.0.0 以接受远程访问。"
+  - name: port
+    scope: server
+    category: server
+    flag: "--port"
+    type: integer
+    default: 8000
+    range: { min: 1, max: 65535 }
+    since: "0.31"
+    description:
+      en: "HTTP listening port of the OpenAI-compatible server."
+      zh: "OpenAI 兼容服务的 HTTP 监听端口。"
+  - name: api_key
+    scope: server
+    category: server
+    flag: "--api-key"
+    type: string
+    since: "0.31"
+    description:
+      en: "If set, the server requires this key in the Authorization: Bearer header. Empty by default (no auth) — set it before exposing the endpoint beyond localhost."
+      zh: "设置后服务要求请求携带 Authorization: Bearer 头。默认为空（无鉴权）——对外暴露端点前务必配置。"
+  - name: served_model_name
+    scope: server
+    category: server
+    flag: "--served-model-name"
+    type: string[]
+    since: "0.31"
+    description:
+      en: "Model name(s) exposed via the API. Defaults to the model path; set a short alias so clients use `model: my-alias` instead of a long local path."
+      zh: "对外暴露的模型名（可多个）。默认为模型路径；设一个短别名后，客户端请求 model 字段填别名即可。"

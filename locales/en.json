@@ -1,0 +1,119 @@
+{
+  "app": {
+    "title": "llm-windtunnel",
+    "tagline": "A wind tunnel for LLM inference engines"
+  },
+  "nav": {
+    "params": "Parameters",
+    "bench": "Benchmark",
+    "results": "Results"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "langSwitch": "中文",
+    "search": "Search parameters…",
+    "openReport": "Open report",
+    "detail": "Details"
+  },
+  "params": {
+    "paramCount": "{{count}} parameters",
+    "archivedEngine": "archived engine — parameters frozen at last release",
+    "statusDocumented": "documented",
+    "statusRuntimeOnly": "runtime-only",
+    "statusArchived": "archived",
+    "scopeRequest": "request",
+    "scopeServer": "server",
+    "fieldType": "Type",
+    "fieldDefault": "Default",
+    "fieldRange": "Range",
+    "fieldChoices": "Choices",
+    "fieldFlag": "CLI flag",
+    "fieldApiField": "API field",
+    "fieldSince": "Verified against",
+    "noResults": "No parameters match your search.",
+    "launchHint": "Launch",
+    "metadataSource": "Metadata source"
+  },
+  "bench": {
+    "title": "Benchmark console",
+    "desc": "Measure TTFT / ITL / TPOT / throughput on any OpenAI-compatible endpoint, sweeping across concurrency levels.",
+    "endpoint": "Base URL",
+    "endpointHint": "http://127.0.0.1:8080/v1",
+    "apiKey": "API key (optional)",
+    "model": "Model",
+    "modelHint": "GET /v1/models lists available ids",
+    "apiPath": "API",
+    "concurrencyLevels": "Concurrency levels",
+    "concurrencyLevelsHint": "comma-separated, e.g. 1, 2, 4, 8",
+    "requestsPerLevel": "Requests per level",
+    "inputTokens": "Input tokens",
+    "outputTokens": "Output tokens",
+    "temperature": "temperature",
+    "topP": "top_p",
+    "stream": "Streaming",
+    "streamHint": "required for TTFT / ITL",
+    "examples": "Example endpoints:",
+    "start": "Start benchmark",
+    "stop": "Stop",
+    "starting": "Starting…",
+    "running": "Running — level {{level}} of {{count}}: {{done}}/{{total}} requests",
+    "completed": "Benchmark completed",
+    "failed": "Benchmark failed",
+    "cancelled": "Benchmark cancelled",
+    "viewResults": "View in Results",
+    "tokenCounting": "Token counting",
+    "errors": "Errors",
+    "concurrency": "Concurrency",
+    "perLevel": "Level C={{c}}"
+  },
+  "metrics": {
+    "ttft": {
+      "name": "TTFT",
+      "desc": "Time To First Token — from request sent to the first content token arriving. The perceived \"instant response\" metric; dominated by prefill and queueing."
+    },
+    "tpot": {
+      "name": "TPOT",
+      "desc": "Time Per Output Token — mean per-token time after the first token, per request. Determines how smooth streaming feels."
+    },
+    "itl": {
+      "name": "ITL",
+      "desc": "Inter-Token Latency — gaps between consecutive tokens, pooled across all requests. Spiky ITL means stuttering streams under load."
+    },
+    "e2e": {
+      "name": "E2E latency",
+      "desc": "End-to-end request time, from send to the final token."
+    },
+    "outputThroughput": {
+      "name": "Output throughput",
+      "desc": "Generated tokens per second across all in-flight requests — the system-level decode throughput."
+    },
+    "requestThroughput": {
+      "name": "Request throughput",
+      "desc": "Completed requests per second."
+    },
+    "totalTokenThroughput": {
+      "name": "Total token throughput",
+      "desc": "Prompt + output tokens per second, matching vllm bench's total_token_throughput for comparability."
+    }
+  },
+  "results": {
+    "title": "Results & comparison",
+    "desc": "Historical runs, side-by-side charts and shareable HTML reports.",
+    "empty": "No benchmark results yet — run one in the Benchmark tab.",
+    "run": "Run",
+    "date": "Date",
+    "model": "Model",
+    "endpoint": "Endpoint",
+    "levels": "Levels",
+    "status": "Status",
+    "compareHint": "Select up to 4 runs to compare",
+    "chartThroughput": "Output throughput vs concurrency",
+    "chartTtft": "TTFT p50 vs concurrency",
+    "chartHeatmap": "TTFT heatmap: concurrency × percentile",
+    "concurrency": "Concurrency",
+    "tokPerS": "tok/s",
+    "ms": "ms"
+  }
+}
