@@ -6,6 +6,12 @@ TTFT、ITL、TPOT、吞吐量、延迟百分位数——并且**每个参数都�
 
 [English README](README.md) · [开源调研报告](docs/research/opensource-survey-2026-10.md)
 
+![压测台](docs/images/bench-zh.png)
+
+| 结果对比 | 参数浏览器 |
+|---|---|
+| ![结果对比](docs/images/results-zh.png) | ![参数浏览器](docs/images/params-zh.png) |
+
 ---
 
 ## 为什么做这个

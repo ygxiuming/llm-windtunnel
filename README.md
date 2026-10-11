@@ -7,6 +7,12 @@ explained in English and 中文**, right where you hover.
 
 [中文说明](README.zh-CN.md) · [开源调研报告 (research survey)](docs/research/opensource-survey-2026-10.md)
 
+![Benchmark console](docs/images/bench-en.png)
+
+| Results & comparison | Parameter browser |
+|---|---|
+| ![Results & comparison](docs/images/results-en.png) | ![Parameter browser](docs/images/params-en.png) |
+
 ---
 
 ## Why

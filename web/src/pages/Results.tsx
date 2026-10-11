@@ -48,7 +48,10 @@ export default function Results() {
   };
 
   useEffect(() => {
-    void refresh();
+    void refresh().then((list) => {
+      // auto-select the most recent run the first time the page loads
+      setSelected((prev) => (prev.length === 0 ? list.slice(0, 1).map((s) => s.id) : prev));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,0 +1,35 @@
+name: Release
+
+# On a version tag (v*): build the self-contained bundle and attach it to the
+# GitHub release. Create the release first (e.g. with `gh release create`),
+# then push/create the tag — or let this workflow create the release for you.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Package bundle
+        run: bash scripts/package.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" dist/release/*.tar.gz dist/release/*.sha256 --clobber
