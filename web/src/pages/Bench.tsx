@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { RunResultT } from "@windtunnel/shared";
+import type { BenchScenarioT, RunResultT } from "@windtunnel/shared";
 import { useTranslation } from "react-i18next";
-import { api } from "../api";
+import { api, type ModelDetail } from "../api";
 import { Badge, Card, MetricTip, Spinner } from "../components/ui";
 
 type StatusState = {
@@ -11,6 +11,7 @@ type StatusState = {
 };
 
 type ModelState = "idle" | "loading" | "ok" | "error";
+type Mode = "mixed" | "prefill" | "decode" | "context";
 
 export const inputCls =
   "w-full rounded-lg border border-border bg-bg/80 px-3 py-2 text-sm text-text outline-none transition-all placeholder:text-muted/50 hover:border-border/80 focus:border-accent focus:shadow-[0_0_0_3px_rgba(91,141,217,.15)]";
@@ -35,6 +36,36 @@ function Field({
       {children}
       {hint && <span className="block text-[11px] text-muted/70">{hint}</span>}
     </label>
+  );
+}
+
+function Toggle({
+  on,
+  onClick,
+}: {
+  on: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={`flex h-[38px] w-full items-center justify-between rounded-lg border px-3 text-sm transition-colors ${
+        on
+          ? "border-accent/70 bg-accent/10 text-accent-soft"
+          : "border-border text-muted hover:border-border/80"
+      }`}
+    >
+      <span className="font-semibold">{on ? "ON" : "OFF"}</span>
+      <span className={`relative h-4 w-8 rounded-full transition-colors ${on ? "bg-accent/70" : "bg-border"}`}>
+        <span
+          className={`absolute top-0.5 h-3 w-3 rounded-full bg-text transition-all ${
+            on ? "left-[18px]" : "left-0.5"
+          }`}
+        />
+      </span>
+    </button>
   );
 }
 
@@ -124,21 +155,40 @@ function ModelField({
   );
 }
 
+const MODES: { id: Mode; labelKey: string }[] = [
+  { id: "mixed", labelKey: "bench.modeMixed" },
+  { id: "prefill", labelKey: "bench.modePrefill" },
+  { id: "decode", labelKey: "bench.modeDecode" },
+  { id: "context", labelKey: "bench.modeContext" },
+];
+
+const parseNums = (s: string): number[] =>
+  s
+    .split(",")
+    .map((x) => parseInt(x.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
 export default function Bench({ onNavigate }: { onNavigate: (page: "results") => void }) {
   const { t } = useTranslation();
-  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8080/v1");
+  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8088/v1");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("");
   const [apiPath, setApiPath] = useState<"chat/completions" | "completions">("chat/completions");
   const [stream, setStream] = useState(true);
-  const [inputTokens, setInputTokens] = useState(256);
-  const [outputTokens, setOutputTokens] = useState(128);
   const [temperature, setTemperature] = useState(1);
   const [topP, setTopP] = useState(1);
+
+  // scenario knobs per mode
+  const [mode, setMode] = useState<Mode>("mixed");
+  const [inputTokens, setInputTokens] = useState(256);
+  const [outputTokens, setOutputTokens] = useState(128);
   const [levelsText, setLevelsText] = useState("1, 2, 4, 8");
   const [requestsPerLevel, setRequestsPerLevel] = useState(20);
+  const [inputLevelsText, setInputLevelsText] = useState("128, 1024, 4096, 16384");
+  const [contextLevelsText, setContextLevelsText] = useState("4096, 16384, 65536");
+  const [singleConcurrency, setSingleConcurrency] = useState("1");
 
-  // Advanced knobs — empty/"" means "not sent at all".
+  // advanced knobs — empty/"" means "not sent at all"
   const [topK, setTopK] = useState("");
   const [minP, setMinP] = useState("");
   const [repetitionPenalty, setRepetitionPenalty] = useState("");
@@ -150,6 +200,7 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
   const [extraBodyText, setExtraBodyText] = useState("");
 
   const [models, setModels] = useState<string[]>([]);
+  const [modelDetails, setModelDetails] = useState<ModelDetail[]>([]);
   const [modelState, setModelState] = useState<ModelState>("idle");
 
   const [runId, setRunId] = useState<string | null>(null);
@@ -163,6 +214,7 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
     const url = baseUrl.trim();
     if (!url) {
       setModels([]);
+      setModelDetails([]);
       setModelState("idle");
       return;
     }
@@ -171,10 +223,12 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
       try {
         const r = await api.models(url, apiKey.trim() || undefined);
         setModels(r.models);
+        setModelDetails(r.details ?? []);
         setModelState(r.error || r.models.length === 0 ? "error" : "ok");
         setModel((prev) => prev || r.models[0] || "");
       } catch {
         setModels([]);
+        setModelDetails([]);
         setModelState("error");
       }
     }, 600);
@@ -187,9 +241,37 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
     try {
       const r = await api.models(baseUrl.trim(), apiKey.trim() || undefined);
       setModels(r.models);
+      setModelDetails(r.details ?? []);
       setModelState(r.error || r.models.length === 0 ? "error" : "ok");
     } catch {
       setModelState("error");
+    }
+  };
+
+  const maxContext = modelDetails.find((d) => d.id === model)?.contextWindow;
+
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    if (m === "mixed") {
+      setInputTokens(256);
+      setOutputTokens(128);
+      setLevelsText("1, 2, 4, 8");
+      setRequestsPerLevel(20);
+    } else if (m === "prefill") {
+      setInputLevelsText("128, 1024, 4096, 16384");
+      setRequestsPerLevel(2);
+      setSingleConcurrency("1");
+    } else if (m === "decode") {
+      setInputTokens(32);
+      setOutputTokens(512);
+      setLevelsText("1, 2, 4");
+      setRequestsPerLevel(10);
+      setIgnoreEos(true);
+    } else {
+      setContextLevelsText("4096, 16384, 65536");
+      setOutputTokens(16);
+      setRequestsPerLevel(1);
+      setSingleConcurrency("1");
     }
   };
 
@@ -222,11 +304,6 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
     setStatus(null);
     setSubmitting(true);
     try {
-      const concurrencyLevels = levelsText
-        .split(",")
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => Number.isFinite(n) && n > 0);
-      if (concurrencyLevels.length === 0) throw new Error("invalid concurrency levels");
       const optInt = (s: string): number | undefined => {
         const v = parseInt(s, 10);
         return Number.isFinite(v) ? v : undefined;
@@ -243,14 +320,45 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
           throw new Error(t("bench.invalidExtraBody"));
         }
       }
+
+      let scenarios: BenchScenarioT[];
+      if (mode === "prefill") {
+        const levels = parseNums(inputLevelsText);
+        if (levels.length === 0) throw new Error("invalid input lengths");
+        scenarios = levels.map((n) => ({
+          inputTokens: n,
+          outputTokens: 1,
+          concurrency: Math.max(1, optInt(singleConcurrency) ?? 1),
+          requests: requestsPerLevel,
+        }));
+      } else if (mode === "context") {
+        const levels = parseNums(contextLevelsText);
+        if (levels.length === 0) throw new Error("invalid context lengths");
+        scenarios = levels.map((n) => ({
+          inputTokens: n,
+          outputTokens,
+          concurrency: Math.max(1, optInt(singleConcurrency) ?? 1),
+          requests: requestsPerLevel,
+        }));
+      } else {
+        const levels = parseNums(levelsText);
+        if (levels.length === 0) throw new Error("invalid concurrency levels");
+        scenarios = levels.map((c) => ({
+          inputTokens,
+          outputTokens: mode === "decode" ? Math.max(outputTokens, 64) : outputTokens,
+          concurrency: c,
+          requests: requestsPerLevel,
+        }));
+      }
+
       const { runId } = await api.startRun({
         baseUrl: baseUrl.trim(),
         apiKey: apiKey.trim() || undefined,
         model: model.trim(),
         apiPath,
         stream,
-        inputTokens,
-        outputTokens,
+        inputTokens: scenarios[0]!.inputTokens,
+        outputTokens: scenarios[0]!.outputTokens,
         temperature,
         topP,
         topK: optInt(topK),
@@ -261,9 +369,10 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
         seed: optInt(seed),
         ignoreEos,
         extraBody,
-        concurrencyLevels,
+        concurrencyLevels: [1],
         requestsPerLevel,
         timeoutMs: Math.max(1, optInt(timeoutSec) ?? 120) * 1000,
+        scenarios,
       });
       setRunId(runId);
     } catch (err) {
@@ -279,6 +388,14 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
 
   const running = status?.status === "running" || submitting;
   const result = status?.result;
+  const modeHintKey =
+    mode === "mixed"
+      ? "bench.modeMixedHint"
+      : mode === "prefill"
+        ? "bench.modePrefillHint"
+        : mode === "decode"
+          ? "bench.modeDecodeHint"
+          : "bench.modeContextHint";
 
   return (
     <div className="space-y-6">
@@ -287,8 +404,8 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
         <p className="text-sm text-muted">{t("bench.desc")}</p>
       </div>
 
-      <form onSubmit={submit} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="grid gap-4 md:col-span-2 md:grid-cols-4 lg:col-span-4">
+      <form onSubmit={submit} className="space-y-4">
+        <Card className="grid gap-4 md:grid-cols-4">
           <Field label={t("bench.endpoint")}>
             <input
               required
@@ -309,6 +426,11 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
               state={modelState}
               onRefresh={reloadModels}
             />
+            {maxContext !== undefined && (
+              <span className="block text-[11px] text-accent-soft/80">
+                {t("bench.maxContext", { n: maxContext.toLocaleString() })}
+              </span>
+            )}
           </div>
           <Field label={t("bench.apiKey")}>
             <input
@@ -330,44 +452,155 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
             </select>
           </Field>
 
-          <Field label={t("bench.concurrencyLevels")} hint={t("bench.concurrencyLevelsHint")}>
-            <input
-              required
-              value={levelsText}
-              onChange={(e) => setLevelsText(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t("bench.requestsPerLevel")}>
-            <input
-              type="number"
-              min={1}
-              max={2000}
-              value={requestsPerLevel}
-              onChange={(e) => setRequestsPerLevel(parseInt(e.target.value, 10))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t("bench.inputTokens")}>
-            <input
-              type="number"
-              min={8}
-              max={32768}
-              value={inputTokens}
-              onChange={(e) => setInputTokens(parseInt(e.target.value, 10))}
-              className={inputCls}
-            />
-          </Field>
-          <Field label={t("bench.outputTokens")}>
-            <input
-              type="number"
-              min={8}
-              max={8192}
-              value={outputTokens}
-              onChange={(e) => setOutputTokens(parseInt(e.target.value, 10))}
-              className={inputCls}
-            />
-          </Field>
+          <div className="md:col-span-2 lg:col-span-4">
+            <span className="mb-1.5 block text-xs font-medium text-muted">{t("bench.mode")}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {MODES.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => switchMode(m.id)}
+                  className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-all ${
+                    mode === m.id
+                      ? "border-transparent bg-gradient-to-r from-accent/30 to-accent-soft/10 text-accent-soft shadow-[inset_0_0_0_1px_rgba(91,141,217,.4)]"
+                      : "border-border text-muted hover:border-accent/40 hover:text-text"
+                  }`}
+                >
+                  {t(m.labelKey)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted/80">{t(modeHintKey)}</p>
+          </div>
+
+          {(mode === "mixed" || mode === "decode") && (
+            <>
+              <Field label={t("bench.inputTokens")}>
+                <input
+                  type="number"
+                  min={8}
+                  max={1048576}
+                  value={inputTokens}
+                  onChange={(e) => setInputTokens(parseInt(e.target.value, 10))}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.outputTokens")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={8192}
+                  value={outputTokens}
+                  onChange={(e) => setOutputTokens(parseInt(e.target.value, 10))}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.concurrencyLevels")} hint={t("bench.concurrencyLevelsHint")}>
+                <input
+                  required
+                  value={levelsText}
+                  onChange={(e) => setLevelsText(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.requestsPerLevel")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={requestsPerLevel}
+                  onChange={(e) => setRequestsPerLevel(parseInt(e.target.value, 10))}
+                  className={inputCls}
+                />
+              </Field>
+            </>
+          )}
+
+          {mode === "prefill" && (
+            <>
+              <Field label={t("bench.inputLevels")} hint={t("bench.inputLevelsHint")}>
+                <input
+                  required
+                  value={inputLevelsText}
+                  onChange={(e) => setInputLevelsText(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.singleConcurrency")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={512}
+                  value={singleConcurrency}
+                  onChange={(e) => setSingleConcurrency(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.requestsPerLevel")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={requestsPerLevel}
+                  onChange={(e) => setRequestsPerLevel(parseInt(e.target.value, 10))}
+                  className={inputCls}
+                />
+              </Field>
+              <div className="flex items-end pb-1 text-[11px] text-muted/80">
+                output = 1 token（TTFT ≈ prefill）
+              </div>
+            </>
+          )}
+
+          {mode === "context" && (
+            <>
+              <Field
+                label={t("bench.contextLevels")}
+                hint={
+                  maxContext
+                    ? `${t("bench.contextLevelsHint")} · ${t("bench.maxContext", { n: maxContext.toLocaleString() })}`
+                    : t("bench.contextLevelsHint")
+                }
+              >
+                <input
+                  required
+                  value={contextLevelsText}
+                  onChange={(e) => setContextLevelsText(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.singleConcurrency")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={512}
+                  value={singleConcurrency}
+                  onChange={(e) => setSingleConcurrency(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.requestsPerLevel")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={2000}
+                  value={requestsPerLevel}
+                  onChange={(e) => setRequestsPerLevel(parseInt(e.target.value, 10))}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label={t("bench.outputTokens")}>
+                <input
+                  type="number"
+                  min={1}
+                  max={8192}
+                  value={outputTokens}
+                  onChange={(e) => setOutputTokens(parseInt(e.target.value, 10))}
+                  className={inputCls}
+                />
+              </Field>
+            </>
+          )}
 
           <Field label={t("bench.temperature")}>
             <input
@@ -392,29 +625,7 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
             />
           </Field>
           <Field label={t("bench.stream")} hint={t("bench.streamHint")}>
-            <button
-              type="button"
-              onClick={() => setStream(!stream)}
-              aria-pressed={stream}
-              className={`flex h-[38px] w-full items-center justify-between rounded-lg border px-3 text-sm transition-colors ${
-                stream
-                  ? "border-accent/70 bg-accent/10 text-accent-soft"
-                  : "border-border text-muted hover:border-border/80"
-              }`}
-            >
-              <span className="font-semibold">{stream ? "ON" : "OFF"}</span>
-              <span
-                className={`relative h-4 w-8 rounded-full transition-colors ${
-                  stream ? "bg-accent/70" : "bg-border"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-text transition-all ${
-                    stream ? "left-[18px]" : "left-0.5"
-                  }`}
-                />
-              </span>
-            </button>
+            <Toggle on={stream} onClick={() => setStream(!stream)} />
           </Field>
           <div className="flex items-end gap-2">
             <button
@@ -442,107 +653,28 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
             <p className="mt-2 text-[11px] text-muted/70">{t("bench.advancedHint")}</p>
             <div className="mt-3 grid gap-4 md:grid-cols-4">
               <Field label="top_k">
-                <input
-                  type="number"
-                  step="1"
-                  value={topK}
-                  onChange={(e) => setTopK(e.target.value)}
-                  placeholder="—"
-                  className={inputCls}
-                />
+                <input type="number" step="1" value={topK} onChange={(e) => setTopK(e.target.value)} placeholder="—" className={inputCls} />
               </Field>
               <Field label="min_p">
-                <input
-                  type="number"
-                  step="0.01"
-                  min={0}
-                  max={1}
-                  value={minP}
-                  onChange={(e) => setMinP(e.target.value)}
-                  placeholder="—"
-                  className={inputCls}
-                />
+                <input type="number" step="0.01" min={0} max={1} value={minP} onChange={(e) => setMinP(e.target.value)} placeholder="—" className={inputCls} />
               </Field>
               <Field label="repetition_penalty">
-                <input
-                  type="number"
-                  step="0.05"
-                  min={0.1}
-                  max={2}
-                  value={repetitionPenalty}
-                  onChange={(e) => setRepetitionPenalty(e.target.value)}
-                  placeholder="—"
-                  className={inputCls}
-                />
+                <input type="number" step="0.05" min={0.1} max={2} value={repetitionPenalty} onChange={(e) => setRepetitionPenalty(e.target.value)} placeholder="—" className={inputCls} />
               </Field>
               <Field label="seed" hint={t("bench.seedHint")}>
-                <input
-                  type="number"
-                  step="1"
-                  value={seed}
-                  onChange={(e) => setSeed(e.target.value)}
-                  placeholder="—"
-                  className={inputCls}
-                />
+                <input type="number" step="1" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="—" className={inputCls} />
               </Field>
               <Field label="presence_penalty">
-                <input
-                  type="number"
-                  step="0.1"
-                  min={-2}
-                  max={2}
-                  value={presencePenalty}
-                  onChange={(e) => setPresencePenalty(e.target.value)}
-                  placeholder="—"
-                  className={inputCls}
-                />
+                <input type="number" step="0.1" min={-2} max={2} value={presencePenalty} onChange={(e) => setPresencePenalty(e.target.value)} placeholder="—" className={inputCls} />
               </Field>
               <Field label="frequency_penalty">
-                <input
-                  type="number"
-                  step="0.1"
-                  min={-2}
-                  max={2}
-                  value={frequencyPenalty}
-                  onChange={(e) => setFrequencyPenalty(e.target.value)}
-                  placeholder="—"
-                  className={inputCls}
-                />
+                <input type="number" step="0.1" min={-2} max={2} value={frequencyPenalty} onChange={(e) => setFrequencyPenalty(e.target.value)} placeholder="—" className={inputCls} />
               </Field>
               <Field label={t("bench.timeout")}>
-                <input
-                  type="number"
-                  step="1"
-                  min={1}
-                  value={timeoutSec}
-                  onChange={(e) => setTimeoutSec(e.target.value)}
-                  className={inputCls}
-                />
+                <input type="number" step="1" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(e.target.value)} className={inputCls} />
               </Field>
               <Field label="ignore_eos" hint={t("bench.ignoreEosHint")}>
-                <button
-                  type="button"
-                  onClick={() => setIgnoreEos(!ignoreEos)}
-                  aria-pressed={ignoreEos}
-                  className={`flex h-[38px] w-full items-center justify-between rounded-lg border px-3 text-sm transition-colors ${
-                    ignoreEos
-                      ? "border-accent/70 bg-accent/10 text-accent-soft"
-                      : "border-border text-muted hover:border-border/80"
-                  }`}
-                >
-                  <span className="font-semibold">{ignoreEos ? "ON" : "OFF"}</span>
-                  <span
-                    className={`relative h-4 w-8 rounded-full transition-colors ${
-                      ignoreEos ? "bg-accent/70" : "bg-border"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 h-3 w-3 rounded-full bg-text transition-all ${
-                        ignoreEos ? "left-[18px]" : "left-0.5"
-                      }`}
-                    />
-                  </span>
-                </button>
+                <Toggle on={ignoreEos} onClick={() => setIgnoreEos(!ignoreEos)} />
               </Field>
               <div className="md:col-span-2 lg:col-span-4">
                 <Field label={t("bench.extraBody")} hint={t("bench.extraBodyHint")}>
@@ -550,7 +682,7 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
                     rows={2}
                     value={extraBodyText}
                     onChange={(e) => setExtraBodyText(e.target.value)}
-                    placeholder='{ "top_k": 40, "options": { "num_ctx": 4096 } }'
+                    placeholder='{ "top_k": 20, "options": { "num_ctx": 4096 } }'
                     className={`${inputCls} font-mono text-xs`}
                   />
                 </Field>
@@ -629,27 +761,33 @@ export default function Bench({ onNavigate }: { onNavigate: (page: "results") =>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {result.levels.map((l) => (
                 <div
-                  key={l.concurrency}
+                  key={l.label ?? l.concurrency}
                   className="rounded-xl border border-border bg-gradient-to-b from-surface to-bg p-4 transition-colors hover:border-accent/40"
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-accent-soft">
-                      {t("bench.perLevel", { c: l.concurrency })}
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="truncate font-mono text-xs font-semibold text-accent-soft" title={l.label}>
+                      {l.label ?? `C=${l.concurrency}`}
                     </span>
-                    <span className="text-[11px] text-muted">
+                    <span className="shrink-0 text-[11px] text-muted">
                       {l.successfulRequests}/{l.totalRequests} ok
                     </span>
                   </div>
                   <dl className="space-y-2 text-xs">
                     {(
-                      [
-                        ["outputThroughput", `${l.outputThroughput.toFixed(1)} tok/s`],
-                        ["ttft", l.ttft ? `${l.ttft.p50.toFixed(0)} / ${l.ttft.p99.toFixed(0)} ms` : null],
-                        ["tpot", l.tpot ? `${l.tpot.p50.toFixed(1)} ms` : null],
-                        ["itl", l.itl ? `${l.itl.p50.toFixed(1)} ms` : null],
-                        ["e2e", l.e2e ? `${l.e2e.p50.toFixed(0)} ms` : null],
-                        ["requestThroughput", `${l.requestThroughput.toFixed(2)} req/s`],
-                      ] as [string, string | null][]
+                      l.prefillThroughput !== undefined
+                        ? ([
+                            ["prefillThroughput", `${l.prefillThroughput.toFixed(0)} tok/s`],
+                            ["ttft", l.ttft ? `${l.ttft.p50.toFixed(0)} / ${l.ttft.p99.toFixed(0)} ms` : null],
+                            ["e2e", l.e2e ? `${l.e2e.p50.toFixed(0)} ms` : null],
+                          ] as [string, string | null][])
+                        : ([
+                            ["outputThroughput", `${l.outputThroughput.toFixed(1)} tok/s`],
+                            ["ttft", l.ttft ? `${l.ttft.p50.toFixed(0)} / ${l.ttft.p99.toFixed(0)} ms` : null],
+                            ["tpot", l.tpot ? `${l.tpot.p50.toFixed(1)} ms` : null],
+                            ["itl", l.itl ? `${l.itl.p50.toFixed(1)} ms` : null],
+                            ["e2e", l.e2e ? `${l.e2e.p50.toFixed(0)} ms` : null],
+                            ["requestThroughput", `${l.requestThroughput.toFixed(2)} req/s`],
+                          ] as [string, string | null][])
                     ).map(([key, value]) =>
                       value ? (
                         <div key={key} className="flex items-center justify-between gap-2">

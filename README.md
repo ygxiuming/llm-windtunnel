@@ -49,6 +49,22 @@ head to **Benchmark**, point it at your engine — e.g.
 `http://127.0.0.1:8000/v1` (vLLM), `http://127.0.0.1:11434/v1` (Ollama),
 `http://127.0.0.1:8080/v1` (llama.cpp) — and hit **Start benchmark**.
 
+The model list loads automatically from `GET /v1/models` (click the input to
+switch models), and the engine-reported max context is shown when available.
+
+### Four test presets (one scenario engine)
+
+| Preset | What it does | You get |
+|---|---|---|
+| **Mixed sweep** | concurrency × fixed input/output | throughput & latency percentiles per concurrency level |
+| **Prefill** | input-length sweep with a 1-token generation budget | prompt-processing tok/s (like llama-bench `pp`) |
+| **Decode** | tiny prompt + long output (`ignore_eos` on) | generation tok/s per concurrency (like llama-bench `tg`) |
+| **Context scaling** | input ladder up to the engine max | TTFT growth curve + the largest working context |
+
+Advanced request parameters (top_k, min_p, penalties, seed, ignore_eos,
+per-request timeout) plus an arbitrary **extra JSON body** cover every
+engine-specific request field; unset fields are never sent.
+
 > The web UI deliberately listens on **8787** to avoid clashing with llama.cpp's
 > default port 8080 and Ollama's 11434.
 

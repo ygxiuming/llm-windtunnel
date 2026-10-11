@@ -51,6 +51,7 @@ function errMessage(err: unknown): string {
 
 async function runOne(
   cfg: BenchConfigT,
+  outputTokens: number,
   prompt: string,
   runSignal: AbortSignal
 ): Promise<OneResult> {
@@ -65,7 +66,7 @@ async function runOne(
   const isChat = cfg.apiPath === "chat/completions";
   const body: Record<string, unknown> = {
     model: cfg.model,
-    max_tokens: cfg.outputTokens,
+    max_tokens: outputTokens,
     temperature: cfg.temperature,
     top_p: cfg.topP,
     stream: cfg.stream,
@@ -255,16 +256,24 @@ export interface LevelOutcome {
   tokenCounting: "server-usage" | "local-tiktoken";
 }
 
-export async function runLevel(
+export interface ScenarioInput {
+  inputTokens: number;
+  outputTokens: number;
+  concurrency: number;
+  requests: number;
+  label?: string;
+}
+
+export async function runScenario(
   cfg: BenchConfigT,
-  concurrency: number,
+  sc: ScenarioInput,
   opts: {
     signal: AbortSignal;
     onProgress?: (done: number, total: number) => void;
   }
 ): Promise<LevelOutcome> {
-  const prompt = buildPrompt(cfg.inputTokens);
-  const total = cfg.requestsPerLevel;
+  const prompt = buildPrompt(sc.inputTokens);
+  const total = sc.requests;
   const results: OneResult[] = new Array(total);
   let next = 0;
   let done = 0;
@@ -275,13 +284,13 @@ export async function runLevel(
       if (opts.signal.aborted) return;
       const i = next++;
       if (i >= total) return;
-      results[i] = await runOne(cfg, prompt.text, opts.signal);
+      results[i] = await runOne(cfg, sc.outputTokens, prompt.text, opts.signal);
       done++;
       opts.onProgress?.(done, total);
     }
   };
   await Promise.all(
-    Array.from({ length: Math.min(concurrency, total) }, worker)
+    Array.from({ length: Math.min(sc.concurrency, total) }, worker)
   );
   const durationMs = performance.now() - wallStart;
 
@@ -295,6 +304,14 @@ export async function runLevel(
     .filter((r) => r.ttft !== undefined && r.outputTokens > 1)
     .map((r) => (r.e2e - r.ttft!) / (r.outputTokens - 1));
 
+  const ttftStats = dist(ok.map((r) => r.ttft!).filter((v) => v !== undefined));
+  // Prefill throughput: with a 1-token (or 0-token) generation budget, TTFT
+  // is essentially the whole prompt-processing time.
+  const prefillThroughput =
+    sc.outputTokens <= 2 && ttftStats && ok.length > 0
+      ? promptTokensTotal / (ttftStats.mean / 1000)
+      : undefined;
+
   const errorCounts = new Map<string, number>();
   for (const r of bad) {
     const key = r.error ?? "unknown error";
@@ -302,17 +319,23 @@ export async function runLevel(
   }
 
   const metrics: LevelMetricsT = {
-    concurrency,
+    concurrency: sc.concurrency,
+    label:
+      sc.label ??
+      `${sc.inputTokens}→${sc.outputTokens} @ C=${sc.concurrency}`,
+    inputTokens: sc.inputTokens,
+    outputTokens: sc.outputTokens,
     totalRequests: total,
     successfulRequests: ok.length,
     failedRequests: bad.length,
     durationMs,
     requestThroughput: ok.length / durS,
     outputThroughput: outputTokensTotal / durS,
+    prefillThroughput,
     totalTokenThroughput: (promptTokensTotal + outputTokensTotal) / durS,
     promptTokensTotal,
     outputTokensTotal,
-    ttft: dist(ok.map((r) => r.ttft!).filter((v) => v !== undefined)),
+    ttft: ttftStats,
     tpot: dist(tpotSamples),
     itl: dist(ok.flatMap((r) => r.itls)),
     e2e: dist(ok.map((r) => r.e2e)),

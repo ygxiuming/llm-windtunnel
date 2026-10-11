@@ -114,10 +114,16 @@ export default function Results() {
     }
   };
 
+  const isPrefillRun =
+    selectedRuns.length > 0 &&
+    selectedRuns.every((r) => r.levels.some((l) => l.prefillThroughput !== undefined));
+
   const throughputOption = useMemo<echarts.EChartsOption>(() => {
     const concurrencies = [
-      ...new Set(selectedRuns.flatMap((r) => r.levels.map((l) => l.concurrency))),
-    ].sort((a, b) => a - b);
+      ...new Set(
+        selectedRuns.flatMap((r) => r.levels.map((l) => l.label ?? `C=${l.concurrency}`))
+      ),
+    ];
     return {
       backgroundColor: "transparent",
       textStyle: { color: "#7d8fa8" },
@@ -126,9 +132,9 @@ export default function Results() {
       grid: { left: 48, right: 16, top: 28, bottom: 28 },
       xAxis: {
         type: "category",
-        name: t("results.concurrency"),
+        name: isPrefillRun ? "input" : undefined,
         nameTextStyle: axisLabel,
-        data: concurrencies.map(String),
+        data: concurrencies,
         axisLabel,
         splitLine,
       },
@@ -142,21 +148,25 @@ export default function Results() {
       series: selectedRuns.map((r, i) => ({
         name: r.id,
         type: "bar" as const,
-        data: concurrencies.map(
-          (c) => r.levels.find((l) => l.concurrency === c)?.outputThroughput ?? null
-        ),
+        data: concurrencies.map((c) => {
+          const l = r.levels.find((x) => (x.label ?? `C=${x.concurrency}`) === c);
+          const v = isPrefillRun ? l?.prefillThroughput : l?.outputThroughput;
+          return v ?? null;
+        }),
         itemStyle: {
           color: SERIES_COLORS[i % SERIES_COLORS.length],
           borderRadius: [4, 4, 0, 0],
         },
       })),
     };
-  }, [selectedRuns, t]);
+  }, [selectedRuns, t, isPrefillRun]);
 
   const ttftOption = useMemo<echarts.EChartsOption>(() => {
     const concurrencies = [
-      ...new Set(selectedRuns.flatMap((r) => r.levels.map((l) => l.concurrency))),
-    ].sort((a, b) => a - b);
+      ...new Set(
+        selectedRuns.flatMap((r) => r.levels.map((l) => l.label ?? `C=${l.concurrency}`))
+      ),
+    ];
     return {
       backgroundColor: "transparent",
       textStyle: { color: "#7d8fa8" },
@@ -165,9 +175,7 @@ export default function Results() {
       grid: { left: 48, right: 16, top: 28, bottom: 28 },
       xAxis: {
         type: "category",
-        name: t("results.concurrency"),
-        nameTextStyle: axisLabel,
-        data: concurrencies.map(String),
+        data: concurrencies,
         axisLabel,
         splitLine,
       },
@@ -183,7 +191,8 @@ export default function Results() {
         type: "line" as const,
         smooth: true,
         data: concurrencies.map(
-          (c) => r.levels.find((l) => l.concurrency === c)?.ttft?.p50 ?? null
+          (c) =>
+            r.levels.find((l) => (l.label ?? `C=${l.concurrency}`) === c)?.ttft?.p50 ?? null
         ),
         itemStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length] },
         lineStyle: { color: SERIES_COLORS[i % SERIES_COLORS.length], width: 2 },
@@ -356,7 +365,9 @@ export default function Results() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">{t("results.chartThroughput")}</h2>
+                <h2 className="text-sm font-semibold">
+                  {isPrefillRun ? t("results.chartPrefill") : t("results.chartThroughput")}
+                </h2>
                 <span className="text-[11px] text-muted">{t("results.compareHint")}</span>
               </div>
               {selectedRuns.length > 0 ? (
@@ -382,10 +393,13 @@ export default function Results() {
                   </span>
                 )}
               </h2>
-              {selectedRuns.length > 0 ? (
+              {selectedRuns.length > 0 &&
+              new Set(selectedRuns[0]!.levels.map((l) => l.concurrency)).size >= 2 ? (
                 <Chart option={heatmapOption} />
               ) : (
-                <div className="grid h-72 place-items-center text-sm text-muted">{t("results.empty")}</div>
+                <div className="grid h-72 place-items-center text-sm text-muted">
+                  {t("results.heatmapNeedsConcurrency")}
+                </div>
               )}
             </Card>
           </div>

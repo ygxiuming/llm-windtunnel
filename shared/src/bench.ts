@@ -6,6 +6,20 @@ import { z } from "zod";
  * output so results stay comparable with the ecosystem.
  * ============================================================ */
 
+/**
+ * One measurement point. A run executes a list of scenarios sequentially,
+ * which lets presets express mixed sweeps, prefill tests (output=1),
+ * decode tests (tiny input, long output) and context-length scaling.
+ */
+export const BenchScenario = z.object({
+  inputTokens: z.number().int().min(8).max(1048576),
+  outputTokens: z.number().int().min(1).max(8192),
+  concurrency: z.number().int().min(1).max(512),
+  requests: z.number().int().min(1).max(2000).default(1),
+  label: z.string().optional(),
+});
+export type BenchScenarioT = z.infer<typeof BenchScenario>;
+
 export const BenchConfig = z.object({
   /** Base URL of an OpenAI-compatible endpoint, e.g. http://127.0.0.1:8080/v1 */
   baseUrl: z.string().min(1),
@@ -38,6 +52,9 @@ export const BenchConfig = z.object({
     .max(16)
     .default([1, 2, 4, 8]),
   requestsPerLevel: z.number().int().min(1).max(2000).default(20),
+  /** Explicit scenario matrix — takes precedence over the concurrency sweep
+   *  when present (used by the Prefill / Decode / Context presets). */
+  scenarios: z.array(BenchScenario).min(1).max(32).optional(),
   /** Per-request timeout. */
   timeoutMs: z.number().int().min(1000).max(600000).default(120000),
 });
@@ -57,6 +74,10 @@ export type DistributionStatsT = z.infer<typeof DistributionStats>;
 
 export const LevelMetrics = z.object({
   concurrency: z.number().int(),
+  /** Human-readable scenario label, e.g. "256→128 @ C=4". */
+  label: z.string().optional(),
+  inputTokens: z.number().int().optional(),
+  outputTokens: z.number().int().optional(),
   totalRequests: z.number().int(),
   successfulRequests: z.number().int(),
   failedRequests: z.number().int(),
@@ -66,6 +87,9 @@ export const LevelMetrics = z.object({
   requestThroughput: z.number(),
   /** Generated (output) tokens per second across all workers. */
   outputThroughput: z.number(),
+  /** Prompt-processing (prefill) tokens per second — only computed for
+   *  scenarios with outputTokens <= 2, where TTFT ≈ prefill time. */
+  prefillThroughput: z.number().optional(),
   /** prompt + output tokens per second. */
   totalTokenThroughput: z.number(),
   promptTokensTotal: z.number(),

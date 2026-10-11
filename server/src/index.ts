@@ -51,7 +51,9 @@ app.get("/api/registry/:engine", async (req, reply) => {
 
 /**
  * Server-side proxy for GET {baseUrl}/models — avoids CORS restrictions that
- * browsers impose on direct calls to local inference engines.
+ * browsers impose on direct calls to local inference engines. Also extracts
+ * the engine-reported max context length when available (vLLM: max_model_len,
+ * llama.cpp-derived servers: context_window).
  */
 app.get("/api/llm/models", async (req, reply) => {
   const { baseUrl, apiKey } = req.query as { baseUrl?: string; apiKey?: string };
@@ -65,19 +67,28 @@ app.get("/api/llm/models", async (req, reply) => {
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
-      return { models: [], error: `HTTP ${res.status} from ${url}` };
+      return { models: [], details: [], error: `HTTP ${res.status} from ${url}` };
     }
     const json = (await res.json()) as {
-      data?: Array<{ id?: string }>;
-      models?: Array<{ name?: string }>;
+      data?: Array<Record<string, unknown>>;
+      models?: Array<Record<string, unknown>>;
     };
-    const ids =
-      json.data?.map((m) => m.id).filter((v): v is string => Boolean(v)) ??
-      json.models?.map((m) => m.name).filter((v): v is string => Boolean(v)) ??
-      [];
-    return { models: [...new Set(ids)].sort((a, b) => a.localeCompare(b)) };
+    const raw = json.data ?? json.models ?? [];
+    type ModelDetail = { id: string; contextWindow?: number };
+    const details = raw
+      .map((m): ModelDetail | null => {
+        const id = (m.id ?? m.name) as string | undefined;
+        if (!id) return null;
+        const ctx = (m.context_window ?? m.max_model_len) as number | undefined;
+        return { id, contextWindow: typeof ctx === "number" ? ctx : undefined };
+      })
+      .filter((m): m is ModelDetail => m !== null);
+    const ids = [...new Set(details.map((m) => m.id))].sort((a, b) =>
+      a.localeCompare(b)
+    );
+    return { models: ids, details };
   } catch (err) {
-    return { models: [], error: String(err) };
+    return { models: [], details: [], error: String(err) };
   }
 });
 

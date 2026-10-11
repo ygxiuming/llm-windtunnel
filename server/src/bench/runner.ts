@@ -3,14 +3,28 @@ import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   BenchConfigT,
+  BenchScenarioT,
   RunProgressT,
   RunResultT,
   RunSummaryT,
 } from "@windtunnel/shared";
 import { ROOT } from "../paths";
-import { runLevel } from "./engine";
+import { runScenario } from "./engine";
 
 const RESULTS_DIR = path.join(ROOT, "results");
+
+/** Scenario list for a config: explicit matrix, or the concurrency sweep. */
+function scenariosOf(config: BenchConfigT): BenchScenarioT[] {
+  return (
+    config.scenarios ??
+    config.concurrencyLevels.map((c) => ({
+      inputTokens: config.inputTokens,
+      outputTokens: config.outputTokens,
+      concurrency: c,
+      requests: config.requestsPerLevel,
+    }))
+  );
+}
 
 interface RunState {
   result: RunResultT;
@@ -28,15 +42,17 @@ async function persist(result: RunResultT): Promise<void> {
 
 async function execute(state: RunState): Promise<void> {
   const { result, controller, progress } = state;
+  const scenarios = scenariosOf(result.config);
   try {
-    for (let li = 0; li < result.config.concurrencyLevels.length; li++) {
+    for (let si = 0; si < scenarios.length; si++) {
       if (controller.signal.aborted) break;
-      const concurrency = result.config.concurrencyLevels[li]!;
-      progress.levelIndex = li;
+      const sc = scenarios[si]!;
+      progress.levelIndex = si;
+      progress.levelCount = scenarios.length;
       progress.requestsDone = 0;
-      progress.requestsTotal = result.config.requestsPerLevel;
+      progress.requestsTotal = sc.requests;
 
-      const outcome = await runLevel(result.config, concurrency, {
+      const outcome = await runScenario(result.config, sc, {
         signal: controller.signal,
         onProgress: (done, total) => {
           progress.requestsDone = done;
@@ -78,7 +94,7 @@ export function startRun(config: BenchConfigT): string {
     },
     progress: {
       levelIndex: 0,
-      levelCount: config.concurrencyLevels.length,
+      levelCount: scenariosOf(config).length,
       requestsDone: 0,
       requestsTotal: config.requestsPerLevel,
     },

@@ -39,7 +39,22 @@
   },
   "bench": {
     "title": "Benchmark console",
-    "desc": "Measure TTFT / ITL / TPOT / throughput on any OpenAI-compatible endpoint, sweeping across concurrency levels.",
+    "desc": "Measure TTFT / ITL / TPOT / throughput on any OpenAI-compatible endpoint — mixed sweeps, prefill, decode and context-length scaling.",
+    "mode": "Test mode",
+    "modeMixed": "Mixed sweep",
+    "modeMixedHint": "concurrency × fixed input/output — the standard throughput & latency sweep",
+    "modePrefill": "Prefill",
+    "modePrefillHint": "prompt-processing speed: input-length sweep with a 1-token generation budget → prefill tok/s (like llama-bench pp)",
+    "modeDecode": "Decode",
+    "modeDecodeHint": "generation speed: tiny prompt + long output (turn on ignore_eos) → decode tok/s per concurrency (like llama-bench tg)",
+    "modeContext": "Context scaling",
+    "modeContextHint": "input-length ladder up to the engine max — TTFT growth curve + the largest working context",
+    "inputLevels": "Input token lengths",
+    "inputLevelsHint": "comma-separated, e.g. 128, 1024, 4096, 16384",
+    "contextLevels": "Context lengths to test",
+    "contextLevelsHint": "ascending, e.g. 4096, 16384, 65536, 262144",
+    "maxContext": "Engine-reported max context: {{n}} tokens",
+    "singleConcurrency": "Concurrency",
     "endpoint": "Base URL",
     "endpointHint": "http://127.0.0.1:8080/v1",
     "apiKey": "API key (optional)",
@@ -109,6 +124,10 @@
     "totalTokenThroughput": {
       "name": "Total token throughput",
       "desc": "Prompt + output tokens per second, matching vllm bench's total_token_throughput for comparability."
+    },
+    "prefillThroughput": {
+      "name": "Prefill tok/s",
+      "desc": "Prompt-processing throughput — input tokens processed per second, measured with a 1-token generation budget so TTFT ≈ prefill time. Comparable to llama-bench's pp (prompt processing) numbers."
     }
   },
   "results": {
@@ -122,9 +141,11 @@
     "levels": "Levels",
     "status": "Status",
     "compareHint": "Select up to 4 runs to compare",
-    "chartThroughput": "Output throughput vs concurrency",
-    "chartTtft": "TTFT p50 vs concurrency",
+    "chartThroughput": "Output throughput by scenario",
+    "chartPrefill": "Prefill throughput by scenario",
+    "chartTtft": "TTFT p50 by scenario",
     "chartHeatmap": "TTFT heatmap: concurrency × percentile",
+    "heatmapNeedsConcurrency": "The concurrency × percentile heatmap needs a run with at least two concurrency levels.",
     "concurrency": "Concurrency",
     "tokPerS": "tok/s",
     "ms": "ms",

@@ -38,6 +38,12 @@ function fmt(v: number | undefined, digits = 1): string {
   return v.toFixed(digits);
 }
 
+function shortLabel(l: LevelMetricsT): string {
+  const raw = l.label ?? `C=${l.concurrency}`;
+  const at = raw.indexOf(" @ ");
+  return at > 0 ? raw.slice(0, at) : raw;
+}
+
 function barChart(
   levels: LevelMetricsT[],
   title: string,
@@ -58,8 +64,8 @@ function barChart(
       const bh = (v / max) * ih;
       const x = pad.l + (iw / levels.length) * i + 6;
       const y = pad.t + ih - bh;
-      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="#5b8dd9"><title>concurrency ${l.concurrency}: ${fmt(v)} ${unit}</title></rect>
-<text x="${(x + bw / 2).toFixed(1)}" y="${(h - 10).toFixed(1)}" text-anchor="middle" font-size="10" fill="#7d8fa8">${l.concurrency}</text>
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" fill="#5b8dd9"><title>${shortLabel(l)}: ${fmt(v)} ${unit}</title></rect>
+<text x="${(x + bw / 2).toFixed(1)}" y="${(h - 10).toFixed(1)}" text-anchor="middle" font-size="9" fill="#7d8fa8">${shortLabel(l)}</text>
 <text x="${(x + bw / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#9fb6d4">${fmt(v)}</text>`;
     })
     .join("\n");
@@ -88,8 +94,8 @@ function lineChart(
     }
   }
   const max = Math.max(1e-9, ...all);
-  const maxC = Math.max(...levels.map((l) => l.concurrency), 1);
-  const x = (c: number) => pad.l + (c / maxC) * iw;
+  const n = Math.max(1, levels.length - 1);
+  const x = (i: number) => pad.l + (i / n) * iw;
   const y = (v: number) => pad.t + ih - (v / max) * ih;
   const gridY = [0.25, 0.5, 0.75, 1].map(
     (f) =>
@@ -99,13 +105,13 @@ function lineChart(
     .filter((s) => levels.some((l) => s.pick(l) !== undefined))
     .map((s) => {
       const pts = levels
-        .map((l) => ({ c: l.concurrency, v: s.pick(l) }))
-        .filter((p): p is { c: number; v: number } => p.v !== undefined);
-      const line = pts.map((p) => `${x(p.c).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+        .map((l, i) => ({ i, v: s.pick(l) }))
+        .filter((p): p is { i: number; v: number } => p.v !== undefined);
+      const line = pts.map((p) => `${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
       const dots = pts
         .map(
           (p) =>
-            `<circle cx="${x(p.c).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3" fill="${s.color}"><title>${s.name} @ ${p.c}: ${fmt(p.v)} ${unit}</title></circle>`
+            `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3" fill="${s.color}"><title>${levels[p.i] ? shortLabel(levels[p.i]!) : ""} · ${s.name}: ${fmt(p.v)} ${unit}</title></circle>`
         )
         .join("");
       const legendX = pad.l + 4;
@@ -114,10 +120,17 @@ function lineChart(
 <rect x="${legendX + idx * 110}" y="${h - 8}" width="8" height="3" fill="${s.color}"/><text x="${legendX + idx * 110 + 12}" y="${h - 4}" font-size="10" fill="#9fb6d4">${s.name}</text>`;
     })
     .join("\n");
+  const xLabels = levels
+    .map(
+      (l, i) =>
+        `<text x="${x(i).toFixed(1)}" y="${(h - 10).toFixed(1)}" text-anchor="middle" font-size="9" fill="#7d8fa8">${shortLabel(l)}</text>`
+    )
+    .join("\n");
   return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%">
 <text x="${pad.l}" y="12" font-size="11" fill="#9fb6d4">${title} (${unit})</text>
 ${gridY.join("\n")}
 <line x1="${pad.l}" y1="${pad.t + ih}" x2="${w - pad.r}" y2="${pad.t + ih}" stroke="#1d2b45"/>
+${xLabels}
 ${paths}</svg>`;
 }
 
@@ -129,10 +142,12 @@ export function renderReport(result: RunResultT): string {
   const rows = levels
     .map(
       (l) => `<tr>
-<td>C=${l.concurrency}</td>
+<td>${l.label ?? `C=${l.concurrency}`}</td>
 <td>${l.successfulRequests}/${l.totalRequests}</td>
+<td>${l.inputTokens ?? "—"}</td>
+<td>${l.outputTokens ?? "—"}</td>
 <td>${fmt(l.outputThroughput)}</td>
-<td>${fmt(l.requestThroughput, 2)}</td>
+<td>${l.prefillThroughput !== undefined ? fmt(l.prefillThroughput) : "—"}</td>
 <td>${fmt(l.ttft?.p50)}</td><td>${fmt(l.ttft?.p90)}</td><td>${fmt(l.ttft?.p99)}</td>
 <td>${fmt(l.tpot?.p50)}</td><td>${fmt(l.itl?.p50)}</td>
 <td>${fmt(l.e2e?.p50, 0)}</td>
@@ -143,11 +158,11 @@ export function renderReport(result: RunResultT): string {
 
   const kpis = best
     ? `<div class="kpis">
-<div class="kpi"><div class="v">${fmt(best.outputThroughput)}</div><div class="l">Output tok/s @ C=${best.concurrency}</div></div>
+<div class="kpi"><div class="v">${fmt(best.prefillThroughput ?? best.outputThroughput)}</div><div class="l">${best.prefillThroughput !== undefined ? "Prefill tok/s" : "Output tok/s"} · ${best.label ?? `C=${best.concurrency}`}</div></div>
 <div class="kpi"><div class="v">${fmt(best.ttft?.p50)}</div><div class="l">TTFT p50 (ms)</div></div>
 <div class="kpi"><div class="v">${fmt(best.ttft?.p99)}</div><div class="l">TTFT p99 (ms)</div></div>
 <div class="kpi"><div class="v">${fmt(best.tpot?.p50)}</div><div class="l">TPOT p50 (ms)</div></div>
-<div class="kpi"><div class="v">${fmt(best.requestThroughput, 2)}</div><div class="l">Req/s @ C=${best.concurrency}</div></div>
+<div class="kpi"><div class="v">${fmt(best.requestThroughput, 2)}</div><div class="l">Req/s</div></div>
 </div>`
     : "";
 
@@ -172,27 +187,27 @@ export function renderReport(result: RunResultT): string {
 
   ${kpis}
 
-  <h2>Per-concurrency breakdown</h2>
+  <h2>Per-scenario breakdown</h2>
   <table>
     <thead><tr>
-      <th>Level</th><th>Requests ok</th><th>Output tok/s</th><th>Req/s</th>
+      <th>Scenario</th><th>Requests ok</th><th>In tokens</th><th>Out tokens</th><th>Output tok/s</th><th>Prefill tok/s</th>
       <th>TTFT p50</th><th>TTFT p90</th><th>TTFT p99</th>
       <th>TPOT p50</th><th>ITL p50</th><th>E2E p50</th><th>Errors</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <p class="muted">All latency figures in ms.</p>
+  <p class="muted">All latency figures in ms. Prefill tok/s is measured with a 1-token generation budget (TTFT ≈ prompt-processing time).</p>
 
   <h2>Charts</h2>
   <div class="charts">
-    <div class="card">${barChart(levels, "Output throughput by concurrency", "tok/s", (l) => l.outputThroughput)}</div>
-    <div class="card">${barChart(levels, "Total token throughput by concurrency", "tok/s", (l) => l.totalTokenThroughput)}</div>
-    <div class="card">${lineChart(levels, "TTFT percentiles vs concurrency", "ms", [
+    <div class="card">${barChart(levels, "Output throughput by scenario", "tok/s", (l) => l.outputThroughput)}</div>
+    <div class="card">${barChart(levels, "Total token throughput by scenario", "tok/s", (l) => l.totalTokenThroughput)}</div>
+    <div class="card">${lineChart(levels, "TTFT percentiles by scenario", "ms", [
       { name: "p50", color: "#6fe0a8", pick: (l) => l.ttft?.p50 },
       { name: "p90", color: "#9cc0ff", pick: (l) => l.ttft?.p90 },
       { name: "p99", color: "#ff9db0", pick: (l) => l.ttft?.p99 },
     ])}</div>
-    <div class="card">${lineChart(levels, "Latency profile vs concurrency", "ms", [
+    <div class="card">${lineChart(levels, "Latency profile by scenario", "ms", [
       { name: "TPOT p50", color: "#6fe0a8", pick: (l) => l.tpot?.p50 },
       { name: "ITL p50", color: "#9cc0ff", pick: (l) => l.itl?.p50 },
       { name: "E2E p50", color: "#f2c67f", pick: (l) => l.e2e?.p50 },

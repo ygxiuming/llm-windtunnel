@@ -39,7 +39,22 @@
   },
   "bench": {
     "title": "压测台",
-    "desc": "对任意 OpenAI 兼容端点测量 TTFT / ITL / TPOT / 吞吐量，并按并发档位扫描。",
+    "desc": "对任意 OpenAI 兼容端点测量 TTFT / ITL / TPOT / 吞吐量——支持综合扫描、Prefill 专项、Decode 专项与上下文长度扩展。",
+    "mode": "测试模式",
+    "modeMixed": "综合压测",
+    "modeMixedHint": "并发 × 固定输入/输出——标准的吞吐与延迟扫描",
+    "modePrefill": "Prefill 专项",
+    "modePrefillHint": "预填充（prompt 处理）速度：扫描输入长度、输出仅 1 token → 报告 prefill tok/s（对标 llama-bench 的 pp）",
+    "modeDecode": "Decode 专项",
+    "modeDecodeHint": "解码生成速度：极短输入 + 长输出（建议开 ignore_eos）→ 按并发档报告 decode tok/s（对标 llama-bench 的 tg）",
+    "modeContext": "上下文扫描",
+    "modeContextHint": "输入长度阶梯爬升到引擎上限——观察 TTFT 增长曲线，并找出最大可用上下文",
+    "inputLevels": "输入 token 长度",
+    "inputLevelsHint": "逗号分隔，如 128, 1024, 4096, 16384",
+    "contextLevels": "要测试的上下文长度",
+    "contextLevelsHint": "升序排列，如 4096, 16384, 65536, 262144",
+    "maxContext": "引擎报告的最大上下文：{{n}} tokens",
+    "singleConcurrency": "并发数",
     "endpoint": "服务地址（Base URL）",
     "endpointHint": "http://127.0.0.1:8080/v1",
     "apiKey": "API Key（可选）",
@@ -109,6 +124,10 @@
     "totalTokenThroughput": {
       "name": "总 token 吞吐",
       "desc": "输入 + 输出 token 每秒合计，字段口径对齐 vllm bench 的 total_token_throughput，便于横向对比。"
+    },
+    "prefillThroughput": {
+      "name": "Prefill 吞吐",
+      "desc": "预填充吞吐——每秒处理的输入 token 数。用 1 token 生成预算测量（TTFT ≈ 预填充时间），可与 llama-bench 的 pp（prompt processing）指标对比。"
     }
   },
   "results": {
@@ -122,9 +141,11 @@
     "levels": "档位",
     "status": "状态",
     "compareHint": "最多选择 4 条记录进行对比",
-    "chartThroughput": "吞吐量 vs 并发",
-    "chartTtft": "TTFT p50 vs 并发",
+    "chartThroughput": "输出吞吐（按场景）",
+    "chartPrefill": "Prefill 吞吐（按场景）",
+    "chartTtft": "TTFT p50（按场景）",
     "chartHeatmap": "TTFT 热力图：并发 × 百分位",
+    "heatmapNeedsConcurrency": "并发 × 百分位热力图需要至少两个并发档位的运行记录。",
     "concurrency": "并发",
     "tokPerS": "tok/s",
     "ms": "毫秒",

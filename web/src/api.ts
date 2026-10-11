@@ -16,6 +16,11 @@ export interface EngineMeta {
   paramCount: number;
 }
 
+export interface ModelDetail {
+  id: string;
+  contextWindow?: number;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = "";
@@ -43,7 +48,7 @@ export const api = {
     const q = new URLSearchParams({ baseUrl });
     if (apiKey) q.set("apiKey", apiKey);
     return fetch(`/api/llm/models?${q.toString()}`).then((r) =>
-      json<{ models: string[]; error?: string }>(r)
+      json<{ models: string[]; details?: ModelDetail[]; error?: string }>(r)
     );
   },
 
